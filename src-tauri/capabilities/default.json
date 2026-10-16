@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Capability for the app windows",
   "windows": ["settings", "clipboard-popup"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "dialog:default"]
 }

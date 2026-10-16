@@ -66,3 +66,86 @@ body {
   text-align: center;
   opacity: 0.6;
 }
+
+/* 설정 창 */
+.settings {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 32px);
+  gap: 12px;
+}
+.tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.4);
+}
+.tab {
+  border: none;
+  background: transparent;
+  padding: 8px 14px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+.tab.active {
+  border-bottom-color: #3b82f6;
+  font-weight: 600;
+}
+.settings main {
+  flex: 1;
+  overflow-y: auto;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+}
+.row .label {
+  width: 160px;
+  flex-shrink: 0;
+}
+.grow {
+  flex: 1;
+  min-width: 0;
+}
+.card {
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  border: 1px solid rgba(128, 128, 128, 0.4);
+  border-radius: 6px;
+}
+.hotkey-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.hotkey {
+  width: 190px;
+  cursor: pointer;
+}
+.hotkey.error {
+  border-color: #dc2626;
+}
+.badge {
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 12px;
+}
+.field-error {
+  color: #dc2626;
+  font-size: 12px;
+}
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.message {
+  opacity: 0.8;
+}
+.empty {
+  opacity: 0.6;
+}
