@@ -1,12 +1,32 @@
+// 후속 단위에서 사용할 타입이 먼저 정의되어 있다
+#![allow(dead_code)]
+
+mod commands;
 mod platform;
+mod remap;
+mod settings;
+mod state;
 mod tray;
+mod window_layout;
+
+use std::sync::RwLock;
+
+use tauri::Manager;
 
 pub fn run() {
     tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![
+            commands::get_settings,
+            commands::export_settings,
+            commands::import_settings
+        ])
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             tray::show_settings(app);
         }))
         .setup(|app| {
+            let path = app.path().app_config_dir()?.join("settings.json");
+            let store = settings::store::SettingsStore::new(path);
+            app.manage(state::AppState { settings: RwLock::new(store.load()), store });
             tray::create(app.handle())?;
             Ok(())
         })
