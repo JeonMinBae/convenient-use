@@ -1,6 +1,3 @@
-// 후속 단위에서 사용할 타입이 먼저 정의되어 있다
-#![allow(dead_code)]
-
 mod clipboard;
 mod commands;
 mod hotkey;
@@ -132,6 +129,9 @@ pub fn apply_settings(app: &AppHandle) -> usize {
 /// 키보드 훅 핸들러 체인. 순서가 곧 우선순위다 (리매핑 핸들러는 맨 앞에 추가).
 fn keyboard_handlers(app: &AppHandle, settings: &Settings) -> Vec<Box<dyn KeyHandler>> {
     let mut handlers: Vec<Box<dyn KeyHandler>> = Vec::new();
+    if settings.general.features.remap {
+        handlers.push(Box::new(remap::RemapHandler::new(&settings.remap)));
+    }
     if settings.general.features.snippet {
         handlers.push(Box::new(snippet::SnippetHandler::new(app.clone(), &settings.snippets)));
     }

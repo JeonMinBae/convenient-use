@@ -3,17 +3,19 @@ import { type HotkeyFailure, type Settings, type ValidationError, getHotkeyFailu
 import { ClipboardTab } from "./ClipboardTab";
 import { GeneralTab } from "./GeneralTab";
 import { LaunchTab } from "./LaunchTab";
+import { RemapTab } from "./RemapTab";
 import { SnippetTab } from "./SnippetTab";
 import { WindowTab } from "./WindowTab";
 import { buildFieldMaps } from "./fields";
 
-type Tab = "general" | "launch" | "window" | "clipboard" | "snippet";
+type Tab = "general" | "launch" | "window" | "clipboard" | "snippet" | "remap";
 const TABS: [Tab, string][] = [
   ["general", "일반"],
   ["launch", "실행 단축키"],
   ["window", "창 조절"],
   ["clipboard", "클립보드"],
   ["snippet", "스니펫"],
+  ["remap", "키 리매핑"],
 ];
 
 export default function SettingsApp() {
@@ -82,6 +84,7 @@ export default function SettingsApp() {
         {tab === "window" && <WindowTab draft={draft} onChange={onChange} maps={maps} />}
         {tab === "clipboard" && <ClipboardTab draft={draft} onChange={onChange} maps={maps} onMessage={setMessage} />}
         {tab === "snippet" && <SnippetTab draft={draft} onChange={onChange} maps={maps} />}
+        {tab === "remap" && <RemapTab draft={draft} onChange={onChange} maps={maps} />}
       </main>
       <footer className="footer">
         <span className="message">{message}</span>

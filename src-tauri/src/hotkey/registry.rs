@@ -84,6 +84,7 @@ pub fn collect(s: &Settings) -> (Vec<Binding>, Vec<InvalidBinding>) {
     (ok, bad)
 }
 
+#[cfg(test)]
 pub fn collect_bindings(s: &Settings) -> Result<Vec<Binding>, Vec<InvalidBinding>> {
     let (ok, bad) = collect(s);
     if bad.is_empty() { Ok(ok) } else { Err(bad) }

@@ -16,6 +16,7 @@ pub struct KeyEvent {
 }
 
 impl KeyEvent {
+    #[cfg(test)]
     pub fn key(code: &str, down: bool) -> Self {
         Self { code: code.to_string(), down, time_ms: 0, injected: false, ch: None }
     }

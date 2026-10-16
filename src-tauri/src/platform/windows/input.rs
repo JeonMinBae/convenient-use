@@ -41,9 +41,23 @@ fn is_extended(vk: u16) -> bool {
 }
 
 pub fn send_keys(combos: &[KeyCombo]) -> Result<()> {
-    let mut inputs = Vec::new();
+    let mut seq = Vec::new();
     for combo in combos {
-        for (vk, down) in sequence(combo)? {
+        seq.extend(sequence(combo)?);
+    }
+    send_vks(&seq)
+}
+
+/// (W3C code, 누름 여부) 를 그대로 주입한다. 리매핑 엔진 출력용.
+pub fn send_events(events: &[(String, bool)]) -> Result<()> {
+    let seq = events.iter().map(|(c, down)| key_vk(c).map(|vk| (vk, *down))).collect::<Result<Vec<_>>>()?;
+    send_vks(&seq)
+}
+
+fn send_vks(seq: &[(u16, bool)]) -> Result<()> {
+    let inputs: Vec<INPUT> = seq
+        .iter()
+        .map(|&(vk, down)| {
             let mut flags = KEYBD_EVENT_FLAGS(0);
             if !down {
                 flags |= KEYEVENTF_KEYUP;
@@ -51,14 +65,14 @@ pub fn send_keys(combos: &[KeyCombo]) -> Result<()> {
             if is_extended(vk) {
                 flags |= KEYEVENTF_EXTENDEDKEY;
             }
-            inputs.push(INPUT {
+            INPUT {
                 r#type: INPUT_KEYBOARD,
                 Anonymous: INPUT_0 {
                     ki: KEYBDINPUT { wVk: VIRTUAL_KEY(vk), wScan: 0, dwFlags: flags, time: 0, dwExtraInfo: INJECTED_MARK },
                 },
-            });
-        }
-    }
+            }
+        })
+        .collect();
     if inputs.is_empty() {
         return Ok(());
     }

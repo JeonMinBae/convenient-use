@@ -67,6 +67,16 @@ fn exe_of(h: HWND) -> Option<String> {
     }
 }
 
+/// 포그라운드 창의 실행 파일 이름 (소문자, 예: "notepad.exe")
+pub fn foreground_exe() -> Result<String> {
+    let h = unsafe { GetForegroundWindow() };
+    if h.0.is_null() {
+        bail!("포그라운드 창이 없다");
+    }
+    let path = exe_of(h).ok_or_else(|| anyhow::anyhow!("실행 파일을 알 수 없다"))?;
+    Ok(path.rsplit(['\\', '/']).next().unwrap_or(&path).to_lowercase())
+}
+
 /// 최소화 상태면 복원 후 전면으로. 포그라운드 잠금으로 실패하면 포그라운드 스레드에 붙어 재시도한다.
 pub fn focus(hwnd: isize) -> Result<()> {
     let h = hw(hwnd);

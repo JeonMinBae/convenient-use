@@ -167,21 +167,18 @@ enum Saved {
 }
 
 fn save(ctx: &ClipboardContext) -> Saved {
-    if ctx.has(ContentFormat::Files) {
-        if let Ok(f) = ctx.get_files() {
+    if ctx.has(ContentFormat::Files)
+        && let Ok(f) = ctx.get_files() {
             return Saved::Files(f);
         }
-    }
-    if ctx.has(ContentFormat::Image) {
-        if let Ok(i) = ctx.get_image() {
+    if ctx.has(ContentFormat::Image)
+        && let Ok(i) = ctx.get_image() {
             return Saved::Image(i);
         }
-    }
-    if ctx.has(ContentFormat::Text) {
-        if let Ok(t) = ctx.get_text() {
+    if ctx.has(ContentFormat::Text)
+        && let Ok(t) = ctx.get_text() {
             return Saved::Text(t);
         }
-    }
     Saved::Empty
 }
 

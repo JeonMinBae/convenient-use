@@ -27,6 +27,9 @@ pub mod process {
     pub fn top_windows() -> anyhow::Result<Vec<(isize, String)>> {
         anyhow::bail!("지원하지 않는 OS")
     }
+    pub fn foreground_exe() -> anyhow::Result<String> {
+        anyhow::bail!("지원하지 않는 OS")
+    }
     pub fn focus(_hwnd: isize) -> anyhow::Result<()> {
         anyhow::bail!("지원하지 않는 OS")
     }
@@ -41,6 +44,9 @@ pub mod input {
     pub const INJECTED_MARK: usize = 0x434F_4E56;
 
     pub fn send_keys(_combos: &[KeyCombo]) -> anyhow::Result<()> {
+        anyhow::bail!("지원하지 않는 OS")
+    }
+    pub fn send_events(_events: &[(String, bool)]) -> anyhow::Result<()> {
         anyhow::bail!("지원하지 않는 OS")
     }
     pub fn send_paste() -> anyhow::Result<()> {

@@ -66,27 +66,21 @@ fn read_current(max_image_mb: u32) -> Option<ClipContent> {
         if attempt > 0 {
             std::thread::sleep(Duration::from_millis(50));
         }
-        if ctx.has(ContentFormat::Files) {
-            if let Ok(files) = ctx.get_files() {
-                if !files.is_empty() {
+        if ctx.has(ContentFormat::Files)
+            && let Ok(files) = ctx.get_files()
+                && !files.is_empty() {
                     return Some(ClipContent::Files(files));
                 }
-            }
-        }
-        if ctx.has(ContentFormat::Image) {
-            if let Ok(img) = ctx.get_image() {
-                if let Ok(rgba) = img.to_rgba8() {
+        if ctx.has(ContentFormat::Image)
+            && let Ok(img) = ctx.get_image()
+                && let Ok(rgba) = img.to_rgba8() {
                     return build_image(rgba, max_image_mb);
                 }
-            }
-        }
-        if ctx.has(ContentFormat::Text) {
-            if let Ok(text) = ctx.get_text() {
-                if !text.is_empty() {
+        if ctx.has(ContentFormat::Text)
+            && let Ok(text) = ctx.get_text()
+                && !text.is_empty() {
                     return Some(ClipContent::Text(text));
                 }
-            }
-        }
     }
     None
 }

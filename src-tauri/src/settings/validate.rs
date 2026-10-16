@@ -31,6 +31,7 @@ pub fn validate(s: &Settings) -> Vec<ValidationError> {
         }
     }
     errors.extend(crate::snippet::validate_keywords(&s.snippets));
+    errors.extend(crate::remap::validate_rules(&s.remap));
     errors
 }
 
