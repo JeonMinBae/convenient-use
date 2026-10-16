@@ -71,3 +71,25 @@ pub fn set_hotkeys_paused(app: AppHandle, state: State<'_, AppState>, paused: bo
 pub fn get_hotkey_failures(state: State<'_, AppState>) -> Vec<HotkeyFailure> {
     state.hotkeys.lock().unwrap().failures()
 }
+
+const CLIP_LIST_LIMIT: u32 = 200;
+
+#[tauri::command]
+pub fn list_clips(state: State<'_, AppState>, query: Option<String>) -> Result<Vec<crate::clipboard::store::ClipItem>, String> {
+    state.clips.lock().unwrap().list(query.as_deref(), CLIP_LIST_LIMIT).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn set_pinned(state: State<'_, AppState>, id: i64, pinned: bool) -> Result<(), String> {
+    state.clips.lock().unwrap().set_pinned(id, pinned).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn delete_clip(state: State<'_, AppState>, id: i64) -> Result<(), String> {
+    state.clips.lock().unwrap().delete(id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn clear_clips(state: State<'_, AppState>) -> Result<(), String> {
+    state.clips.lock().unwrap().clear_unpinned().map_err(|e| e.to_string())
+}

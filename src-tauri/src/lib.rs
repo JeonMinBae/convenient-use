@@ -1,6 +1,7 @@
 // 후속 단위에서 사용할 타입이 먼저 정의되어 있다
 #![allow(dead_code)]
 
+mod clipboard;
 mod commands;
 mod hotkey;
 mod launcher;
@@ -30,7 +31,11 @@ pub fn run() {
             commands::list_installed_apps,
             commands::save_settings,
             commands::set_hotkeys_paused,
-            commands::get_hotkey_failures
+            commands::get_hotkey_failures,
+            commands::list_clips,
+            commands::set_pinned,
+            commands::delete_clip,
+            commands::clear_clips
         ])
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
@@ -48,12 +53,17 @@ pub fn run() {
         .setup(|app| {
             let path = app.path().app_config_dir()?.join("settings.json");
             let store = settings::store::SettingsStore::new(path);
+            let data_dir = app.path().app_data_dir()?;
+            let clips = clipboard::store::ClipStore::open(&data_dir.join("clipboard.db"), &data_dir.join("clips"))?;
             app.manage(state::AppState {
                 settings: RwLock::new(store.load()),
                 store,
                 hotkeys: Mutex::new(Default::default()),
+                clips: Mutex::new(clips),
+                clip_suppress_until: Mutex::new(None),
             });
             tray::create(app.handle())?;
+            clipboard::watcher::start(app.handle().clone());
             let failed = apply_settings(app.handle());
             tray::notify_hotkey_failures(app.handle(), failed);
             Ok(())
@@ -75,6 +85,11 @@ pub fn run() {
 pub fn apply_settings(app: &AppHandle) -> usize {
     let state = app.state::<state::AppState>();
     let settings = state.settings.read().unwrap().clone();
+
+    // max_items 가 줄어든 경우를 반영한다
+    if let Err(e) = state.clips.lock().unwrap().prune(settings.clipboard.max_items) {
+        log::warn!("클립보드 정리 실패: {e}");
+    }
 
     let mut hotkeys = state.hotkeys.lock().unwrap();
     hotkeys.reload(app, &settings);
