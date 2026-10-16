@@ -74,9 +74,11 @@ export default function SettingsApp() {
             draft={draft}
             onChange={onChange}
             onMessage={setMessage}
-            onImported={() => {
-              // 가져오기는 백엔드에 즉시 반영되므로 화면을 다시 불러온다
-              load().catch((e) => setMessage(`새로고침 실패: ${e}`));
+            onImported={(s) => {
+              // 가져오기는 백엔드에 즉시 반영되므로 받은 설정으로 화면을 바꾸고, 단축키 등록 실패만 다시 조회한다
+              setDraft(s);
+              setErrors([]);
+              getHotkeyFailures().then(setFailures, () => setFailures([]));
             }}
           />
         )}

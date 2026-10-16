@@ -1,4 +1,4 @@
-// macOS 등 미지원 OS 의 컴파일 경계. 이후 단위에서 windows 모듈과 같은 함수 시그니처의 스텁을 채운다.
+// macOS 등 미지원 OS 의 컴파일 경계를 유지하는 스텁. windows 모듈과 같은 함수 시그니처를 가진다.
 
 pub mod window_ops {
     use crate::window_layout::Rect;
@@ -48,6 +48,9 @@ pub mod input {
     }
     pub fn send_events(_events: &[(String, bool)]) -> anyhow::Result<()> {
         anyhow::bail!("지원하지 않는 OS")
+    }
+    pub fn held_modifiers() -> Vec<String> {
+        Vec::new()
     }
     pub fn send_paste() -> anyhow::Result<()> {
         anyhow::bail!("지원하지 않는 OS")

@@ -1,4 +1,6 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, bail};
@@ -56,10 +58,31 @@ fn run_app(app: &AppHandle, path: &OsPath) -> anyhow::Result<()> {
         .collect();
     let foreground = crate::platform::current::window_ops::foreground().ok();
     match decide(&exe, &windows, foreground) {
-        Decision::Launch => launch(app, path),
+        Decision::Launch if should_launch(&mut recent_launches().lock().unwrap_or_else(|e| e.into_inner()), &exe, Instant::now()) => {
+            launch(app, path)
+        }
+        Decision::Launch => Ok(()),
         Decision::Focus(h) => process::focus(h),
         Decision::Minimize(h) => process::minimize(h),
     }
+}
+
+/// 연타·창이 뜨기 전 재입력으로 같은 앱이 여러 번 실행되지 않도록 대상별 직전 실행 시각을 기억한다.
+const LAUNCH_DEBOUNCE: Duration = Duration::from_secs(3);
+
+fn recent_launches() -> &'static Mutex<HashMap<String, Instant>> {
+    static M: std::sync::OnceLock<Mutex<HashMap<String, Instant>>> = std::sync::OnceLock::new();
+    M.get_or_init(Default::default)
+}
+
+/// 실행해도 되면 true 이고 시각을 기록한다. 경로는 대소문자를 무시한다.
+fn should_launch(recent: &mut HashMap<String, Instant>, target: &str, now: Instant) -> bool {
+    let key = target.to_lowercase();
+    if recent.get(&key).is_some_and(|t| now.saturating_duration_since(*t) < LAUNCH_DEBOUNCE) {
+        return false;
+    }
+    recent.insert(key, now);
+    true
 }
 
 fn launch(app: &AppHandle, path: &str) -> anyhow::Result<()> {
@@ -138,6 +161,16 @@ fn collect_lnk(dir: &Path, out: &mut Vec<PathBuf>) {
 mod tests {
     use super::*;
     use std::fs;
+
+    #[test]
+    fn launch_debounce_blocks_within_3s_per_target() {
+        let mut m = HashMap::new();
+        let t0 = Instant::now();
+        assert!(should_launch(&mut m, "C:/A.exe", t0));
+        assert!(!should_launch(&mut m, "c:/a.exe", t0 + Duration::from_secs(2)));
+        assert!(should_launch(&mut m, "C:/B.exe", t0 + Duration::from_secs(2)));
+        assert!(should_launch(&mut m, "C:/A.exe", t0 + Duration::from_secs(3)));
+    }
 
     fn w(h: isize, exe: &str) -> WinInfo {
         WinInfo { hwnd: h, exe: exe.into() }

@@ -195,6 +195,7 @@ fn restore(ctx: &ClipboardContext, saved: Saved) {
 }
 
 fn expand(app: &AppHandle, erase: usize, text: &str) -> anyhow::Result<()> {
+    let _op = crate::clipboard::op_lock();
     let state = app.state::<AppState>();
     // 임시 텍스트와 복원이 히스토리에 기록되지 않도록 복원 이후까지 억제한다
     *state.clip_suppress_until.lock().unwrap() = Some(Instant::now() + Duration::from_secs(1));
@@ -202,6 +203,11 @@ fn expand(app: &AppHandle, erase: usize, text: &str) -> anyhow::Result<()> {
     let saved = save(&ctx);
     let result = (|| {
         ctx.set_text(text.to_string()).map_err(|e| anyhow::anyhow!("클립보드 쓰기 실패: {e}"))?;
+        // Shift 를 누른 채 키워드를 끝냈다면 Ctrl+V 가 Ctrl+Shift+V 가 된다. 물리적으로 눌린 수정자를 먼저 뗀다 (다시 누르지 않음)
+        let held = input::held_modifiers();
+        if !held.is_empty() {
+            input::send_events(&held.into_iter().map(|c| (c, false)).collect::<Vec<_>>())?;
+        }
         let backspace = KeyCombo { mods: vec![], key: Some("Backspace".into()) };
         input::send_keys(&vec![backspace; erase])?;
         input::send_paste()?;

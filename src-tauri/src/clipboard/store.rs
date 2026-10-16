@@ -68,6 +68,16 @@ pub struct ClipStore {
     images_dir: PathBuf,
 }
 
+/// 목록 응답에 싣는 텍스트 최대 글자 수
+pub const PREVIEW_CHARS: usize = 300;
+
+fn truncate_chars(s: String, max: usize) -> String {
+    match s.char_indices().nth(max) {
+        Some((i, _)) => s[..i].to_string(),
+        None => s,
+    }
+}
+
 fn io_err(e: std::io::Error) -> rusqlite::Error {
     rusqlite::Error::ToSqlConversionFailure(Box::new(e))
 }
@@ -114,7 +124,11 @@ impl ClipStore {
             ClipContent::Image { png, thumb_png, .. } => {
                 let uuid = uuid::Uuid::new_v4().to_string();
                 fs::write(self.image_path(&uuid), png).map_err(io_err)?;
-                fs::write(self.thumb_path(&uuid), thumb_png).map_err(io_err)?;
+                if let Err(e) = fs::write(self.thumb_path(&uuid), thumb_png) {
+                    // 원본만 남으면 DB 참조가 없는 고아 파일이 된다
+                    self.remove_image_files(&uuid);
+                    return Err(io_err(e));
+                }
                 ("image", None, Some(uuid))
             }
         };
@@ -147,15 +161,15 @@ impl ClipStore {
         Ok(())
     }
 
-    pub fn list(&self, query: Option<&str>, limit: u32) -> rusqlite::Result<Vec<ClipItem>> {
+    pub fn list(&self, query: Option<&str>, limit: u32, offset: u32) -> rusqlite::Result<Vec<ClipItem>> {
         let pattern = query.filter(|q| !q.is_empty()).map(|q| {
             let escaped = q.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_");
             format!("%{escaped}%")
         });
         // 검색은 텍스트·파일 항목만 대상 (이미지는 text 가 NULL 이라 LIKE 에서 빠진다)
         let sql = format!(
-            "SELECT id, kind, text, image_file, pinned, last_used_at FROM clips {} ORDER BY last_used_at DESC, id DESC LIMIT ?1",
-            if pattern.is_some() { "WHERE text LIKE ?2 ESCAPE '\\'" } else { "" }
+            "SELECT id, kind, text, image_file, pinned, last_used_at FROM clips {} ORDER BY last_used_at DESC, id DESC LIMIT ?1 OFFSET ?2",
+            if pattern.is_some() { "WHERE text LIKE ?3 ESCAPE '\\'" } else { "" }
         );
         let mut stmt = self.conn.prepare(&sql)?;
         let map = |r: &rusqlite::Row| {
@@ -169,10 +183,10 @@ impl ClipStore {
             ))
         };
         let rows: Vec<_> = match &pattern {
-            Some(p) => stmt.query_map(params![limit, p], map)?.collect::<Result<_, _>>()?,
-            None => stmt.query_map(params![limit], map)?.collect::<Result<_, _>>()?,
+            Some(p) => stmt.query_map(params![limit, offset, p], map)?.collect::<Result<_, _>>()?,
+            None => stmt.query_map(params![limit, offset], map)?.collect::<Result<_, _>>()?,
         };
-        Ok(rows.into_iter().map(|row| self.build_item(row)).collect())
+        Ok(rows.into_iter().map(|row| self.build_item(row, true)).collect())
     }
 
     /// 붙여넣기용 단건 조회. 이미지면 원본 PNG 경로를 함께 돌려준다.
@@ -187,11 +201,16 @@ impl ClipStore {
             .optional()?;
         Ok(row.map(|row| {
             let path = row.3.as_deref().map(|u| self.image_path(u));
-            (self.build_item(row), path)
+            (self.build_item(row, false), path)
         }))
     }
 
-    fn build_item(&self, (id, kind, text, image_file, pinned, last_used_at): Row) -> ClipItem {
+    fn build_item(&self, (id, kind, text, image_file, pinned, last_used_at): Row, preview: bool) -> ClipItem {
+        // 목록은 미리보기만 보낸다 (files 는 text 에서 경로를 복원하므로 자르지 않는다)
+        let text = match text {
+            Some(t) if preview && kind == "text" => Some(truncate_chars(t, PREVIEW_CHARS)),
+            t => t,
+        };
         let files = (kind == "files").then(|| text.as_deref().unwrap_or("").split('\n').map(String::from).collect());
         let thumbnail = image_file
             .and_then(|u| fs::read(self.thumb_path(&u)).ok())
@@ -254,7 +273,7 @@ mod tests {
         let a = s.record(ClipContent::Text("a".into()), 1, 500).unwrap();
         s.record(ClipContent::Text("b".into()), 2, 500).unwrap();
         assert_eq!(s.record(ClipContent::Text("a".into()), 3, 500).unwrap(), a);
-        let ids: Vec<i64> = s.list(None, 200).unwrap().iter().map(|c| c.id).collect();
+        let ids: Vec<i64> = s.list(None, 200, 0).unwrap().iter().map(|c| c.id).collect();
         assert_eq!(ids.len(), 2);
         assert_eq!(ids[0], a);
     }
@@ -267,8 +286,26 @@ mod tests {
         for i in 2..=5 {
             s.record(ClipContent::Text(format!("t{i}")), i, 2).unwrap();
         }
-        let texts: Vec<String> = s.list(None, 200).unwrap().into_iter().map(|c| c.text.unwrap()).collect();
+        let texts: Vec<String> = s.list(None, 200, 0).unwrap().into_iter().map(|c| c.text.unwrap()).collect();
         assert_eq!(texts, vec!["t5", "t4", "old"]);
+    }
+
+    #[test]
+    fn list_pages_by_offset_and_truncates_text_preview() {
+        let (mut s, _d) = store();
+        for i in 1..=5 {
+            s.record(ClipContent::Text(format!("t{i}")), i, 500).unwrap();
+        }
+        let page = |off| -> Vec<String> { s.list(None, 2, off).unwrap().into_iter().map(|c| c.text.unwrap()).collect() };
+        assert_eq!(page(0), vec!["t5", "t4"]);
+        assert_eq!(page(2), vec!["t3", "t2"]);
+        assert_eq!(page(4), vec!["t1"]);
+        assert!(page(6).is_empty());
+
+        let long = "가".repeat(PREVIEW_CHARS + 50);
+        let id = s.record(ClipContent::Text(long.clone()), 10, 500).unwrap();
+        assert_eq!(s.list(None, 1, 0).unwrap()[0].text.as_deref().unwrap().chars().count(), PREVIEW_CHARS);
+        assert_eq!(s.get(id).unwrap().unwrap().0.text.unwrap(), long);
     }
 
     #[test]
@@ -276,7 +313,7 @@ mod tests {
         let (mut s, _d) = store();
         s.record(ClipContent::Text("100%".into()), 1, 500).unwrap();
         s.record(ClipContent::Text("1000".into()), 2, 500).unwrap();
-        assert_eq!(s.list(Some("0%"), 200).unwrap().len(), 1);
+        assert_eq!(s.list(Some("0%"), 200, 0).unwrap().len(), 1);
     }
 
     #[test]
@@ -286,7 +323,7 @@ mod tests {
         let pinned = s.record(ClipContent::Text("keep".into()), 2, 500).unwrap();
         s.set_pinned(pinned, true).unwrap();
         s.clear_unpinned().unwrap();
-        assert_eq!(s.list(None, 200).unwrap().len(), 1);
+        assert_eq!(s.list(None, 200, 0).unwrap().len(), 1);
         assert_eq!(std::fs::read_dir(d.path()).unwrap().count(), 0, "image {img} files removed");
     }
 
@@ -295,10 +332,10 @@ mod tests {
         let (mut s, _d) = store();
         s.record(ClipContent::Files(vec!["C:\\a.txt".into(), "C:\\b.txt".into()]), 1, 500).unwrap();
         s.record(ClipContent::Image { png: vec![1], thumb_png: vec![2], rgba_hash: "h".into() }, 2, 500).unwrap();
-        let items = s.list(None, 200).unwrap();
+        let items = s.list(None, 200, 0).unwrap();
         assert!(items[0].thumbnail.as_deref().unwrap().starts_with("data:image/png;base64,"));
         assert_eq!(items[1].files.as_ref().unwrap().len(), 2);
-        assert_eq!(s.list(Some("a.txt"), 200).unwrap().len(), 1);
+        assert_eq!(s.list(Some("a.txt"), 200, 0).unwrap().len(), 1);
     }
 
     #[test]
@@ -318,7 +355,7 @@ mod tests {
         let (mut s, d) = store();
         let id = s.record(ClipContent::Image { png: vec![1], thumb_png: vec![2], rgba_hash: "h".into() }, 1, 500).unwrap();
         s.delete(id).unwrap();
-        assert!(s.list(None, 200).unwrap().is_empty());
+        assert!(s.list(None, 200, 0).unwrap().is_empty());
         assert_eq!(std::fs::read_dir(d.path()).unwrap().count(), 0);
     }
 }

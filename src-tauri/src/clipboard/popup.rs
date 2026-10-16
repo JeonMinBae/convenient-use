@@ -31,6 +31,7 @@ pub fn hide(app: &AppHandle) -> anyhow::Result<()> {
 pub fn paste(app: &AppHandle, id: i64) -> anyhow::Result<()> {
     let state = app.state::<AppState>();
     let (clip, image_path) = state.clips.lock().unwrap().get(id)?.ok_or_else(|| anyhow!("클립 {id} 없음"))?;
+    let _op = super::op_lock();
     write_to_clipboard(&clip, image_path.as_deref())?;
     hide(app)?;
     let prev = *state.popup_prev.lock().unwrap();

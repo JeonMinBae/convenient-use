@@ -45,12 +45,10 @@ impl SettingsStore {
         write_atomic(dest, settings)
     }
 
-    /// 파싱에 성공한 경우에만 현재 설정 파일을 교체한다.
-    pub fn import_from(&self, src: &Path) -> Result<Settings> {
+    /// 가져올 파일을 파싱만 한다. 검증·저장은 호출자가 한다 (commands::import_validated).
+    pub fn read_from(&self, src: &Path) -> Result<Settings> {
         let text = fs::read_to_string(src).context("가져올 파일을 읽을 수 없습니다")?;
-        let settings: Settings = serde_json::from_str(&text).context("설정 파일 형식이 올바르지 않습니다")?;
-        self.save(&settings)?;
-        Ok(settings)
+        serde_json::from_str(&text).context("설정 파일 형식이 올바르지 않습니다")
     }
 }
 
@@ -111,9 +109,7 @@ mod tests {
         s.general.autostart = false;
         let out = dir.path().join("out.json");
         st.export_to(&s, &out).unwrap();
-        let got = st.import_from(&out).unwrap();
-        assert_eq!(got, s);
-        assert_eq!(st.load(), s);
+        assert_eq!(st.read_from(&out).unwrap(), s);
     }
 
     #[test]
@@ -124,7 +120,7 @@ mod tests {
         st.save(&s).unwrap();
         let bad = dir.path().join("bad.json");
         fs::write(&bad, "nope").unwrap();
-        assert!(st.import_from(&bad).is_err());
+        assert!(st.read_from(&bad).is_err());
         assert_eq!(st.load(), s);
     }
 }

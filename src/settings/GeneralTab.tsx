@@ -1,5 +1,5 @@
 import { open, save } from "@tauri-apps/plugin-dialog";
-import { type FeatureToggles, type Settings, exportSettings, importSettings } from "../api";
+import { type FeatureToggles, type Settings, type ValidationError, exportSettings, importSettings } from "../api";
 
 const FEATURES: [keyof FeatureToggles, string][] = [
   ["launch", "실행 단축키"],
@@ -38,7 +38,12 @@ export function GeneralTab({ draft, onChange, onImported, onMessage }: Props) {
       onImported(await importSettings(path));
       onMessage("설정을 가져왔습니다.");
     } catch (e) {
-      onMessage(`가져오기 실패: ${e}`);
+      // 검증 실패는 ValidationError[] 로 온다
+      onMessage(
+        Array.isArray(e)
+          ? `가져오기 실패: ${(e as ValidationError[]).map((x) => x.message).join(" / ")}`
+          : `가져오기 실패: ${e}`,
+      );
     }
   }
 

@@ -7,6 +7,7 @@ use crate::hotkey::registry::HotkeyFailure;
 use crate::settings::validate::{ValidationError, validate};
 
 use crate::settings::model::Settings;
+use crate::settings::store::SettingsStore;
 use crate::state::AppState;
 
 #[tauri::command]
@@ -21,10 +22,26 @@ pub fn export_settings(state: State<'_, AppState>, path: String) -> Result<(), S
 }
 
 #[tauri::command]
-pub fn import_settings(app: AppHandle, state: State<'_, AppState>, path: String) -> Result<Settings, String> {
-    let imported = state.store.import_from(Path::new(&path)).map_err(|e| format!("{e:#}"))?;
+pub fn import_settings(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    path: String,
+) -> Result<Settings, Vec<ValidationError>> {
+    let imported = import_validated(&state.store, Path::new(&path))?;
     *state.settings.write().unwrap() = imported.clone();
     crate::apply_settings(&app);
+    Ok(imported)
+}
+
+/// 저장과 같은 검증을 통과한 경우에만 설정 파일을 교체한다. 실패하면 현재 파일은 그대로다.
+fn import_validated(store: &SettingsStore, src: &Path) -> Result<Settings, Vec<ValidationError>> {
+    let whole = |e: anyhow::Error| vec![ValidationError { field: String::new(), message: format!("{e:#}") }];
+    let imported = store.read_from(src).map_err(whole)?;
+    let errors = validate(&imported);
+    if !errors.is_empty() {
+        return Err(errors);
+    }
+    store.save(&imported).map_err(whole)?;
     Ok(imported)
 }
 
@@ -72,11 +89,15 @@ pub fn get_hotkey_failures(state: State<'_, AppState>) -> Vec<HotkeyFailure> {
     state.hotkeys.lock().unwrap().failures()
 }
 
-const CLIP_LIST_LIMIT: u32 = 200;
+const CLIP_PAGE_SIZE: u32 = 100;
 
 #[tauri::command]
-pub fn list_clips(state: State<'_, AppState>, query: Option<String>) -> Result<Vec<crate::clipboard::store::ClipItem>, String> {
-    state.clips.lock().unwrap().list(query.as_deref(), CLIP_LIST_LIMIT).map_err(|e| e.to_string())
+pub fn list_clips(
+    state: State<'_, AppState>,
+    query: Option<String>,
+    offset: Option<u32>,
+) -> Result<Vec<crate::clipboard::store::ClipItem>, String> {
+    state.clips.lock().unwrap().list(query.as_deref(), CLIP_PAGE_SIZE, offset.unwrap_or(0)).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -107,4 +128,28 @@ pub fn paste_clip(app: AppHandle, id: i64) {
 #[tauri::command]
 pub fn hide_clipboard_popup(app: AppHandle) -> Result<(), String> {
     crate::clipboard::popup::hide(&app).map_err(|e| format!("{e:#}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn import_with_duplicate_hotkey_is_rejected_and_keeps_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let store = SettingsStore::new(dir.path().join("settings.json"));
+        let current = Settings::default();
+        store.save(&current).unwrap();
+
+        let mut bad = Settings::default();
+        bad.window_hotkeys[0].hotkey = bad.clipboard.hotkey.clone();
+        let src = dir.path().join("in.json");
+        store.export_to(&bad, &src).unwrap();
+
+        assert!(!import_validated(&store, &src).unwrap_err().is_empty());
+        assert_eq!(store.load(), current);
+
+        store.export_to(&current, &src).unwrap();
+        assert_eq!(import_validated(&store, &src).unwrap(), current);
+    }
 }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { type ClipItem, deleteClip, hideClipboardPopup, listClips, pasteClip, setPinned } from "../api";
+import { CLIP_PAGE_SIZE, type ClipItem, deleteClip, hideClipboardPopup, listClips, pasteClip, setPinned } from "../api";
 
 function preview(c: ClipItem) {
   if (c.kind === "files") {
@@ -19,14 +19,44 @@ export default function ClipboardPopup() {
   const queryRef = useRef(query);
   queryRef.current = query;
   const list = useRef<HTMLUListElement>(null);
+  const clipsRef = useRef(clips);
+  clipsRef.current = clips;
+  // 응답이 늦게 도착해 최신 검색 결과를 덮어쓰지 않도록 요청마다 번호를 매긴다
+  const reqId = useRef(0);
+  const exhausted = useRef(false);
+  const loadingMore = useRef(false);
 
   const refetch = useCallback(async (q: string) => {
+    const id = ++reqId.current;
+    exhausted.current = false;
+    loadingMore.current = false;
     try {
       const items = await listClips(q);
+      if (id !== reqId.current) return;
+      exhausted.current = items.length < CLIP_PAGE_SIZE;
       setClips(items);
       setSel((i) => Math.min(i, Math.max(items.length - 1, 0)));
     } catch {
-      setClips([]);
+      if (id === reqId.current) setClips([]);
+    }
+  }, []);
+
+  const loadMore = useCallback(async () => {
+    if (exhausted.current || loadingMore.current) return;
+    loadingMore.current = true;
+    const id = reqId.current;
+    try {
+      const items = await listClips(queryRef.current, clipsRef.current.length);
+      if (id !== reqId.current) return;
+      exhausted.current = items.length < CLIP_PAGE_SIZE;
+      setClips((prev) => {
+        const seen = new Set(prev.map((c) => c.id));
+        return [...prev, ...items.filter((c) => !seen.has(c.id))];
+      });
+    } catch {
+      exhausted.current = true;
+    } finally {
+      loadingMore.current = false;
     }
   }, []);
 
@@ -59,6 +89,7 @@ export default function ClipboardPopup() {
     if (e.key === "ArrowDown") {
       e.preventDefault();
       setSel((i) => Math.min(i + 1, clips.length - 1));
+      if (sel >= clips.length - 1) loadMore();
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setSel((i) => Math.max(i - 1, 0));
@@ -79,7 +110,14 @@ export default function ClipboardPopup() {
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
-      <ul className="popup-list" ref={list}>
+      <ul
+        className="popup-list"
+        ref={list}
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          if (el.scrollTop + el.clientHeight >= el.scrollHeight - 80) loadMore();
+        }}
+      >
         {clips.map((c, i) => (
           <li
             key={c.id}

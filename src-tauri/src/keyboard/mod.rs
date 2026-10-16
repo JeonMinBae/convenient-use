@@ -31,6 +31,8 @@ pub enum KeyDecision {
 /// 훅 콜백 안에서 호출되므로 빨리 반환해야 한다(OS 타임아웃 시 훅이 해제된다). 대기가 필요한 동작은 별도 스레드로 보낸다.
 pub trait KeyHandler: Send {
     fn on_key(&mut self, ev: &KeyEvent) -> KeyDecision;
+    /// 핸들러가 교체·제거되기 직전에 호출된다. 눌러 둔 출력 키 등 진행 중인 상태를 해제한다.
+    fn release(&mut self) {}
 }
 
 pub struct Dispatcher {
@@ -40,6 +42,14 @@ pub struct Dispatcher {
 impl Dispatcher {
     pub fn new(handlers: Vec<Box<dyn KeyHandler>>) -> Self {
         Self { handlers }
+    }
+
+    /// 기존 핸들러를 해제한 뒤 교체한다. 이 순서가 아니면 눌린 채 남은 출력 키가 고착된다.
+    pub fn replace(&mut self, handlers: Vec<Box<dyn KeyHandler>>) {
+        for h in &mut self.handlers {
+            h.release();
+        }
+        self.handlers = handlers;
     }
 
     pub fn handle(&mut self, ev: &KeyEvent) -> KeyDecision {
@@ -64,7 +74,7 @@ fn dispatcher() -> &'static Mutex<Dispatcher> {
 /// 핸들러 목록을 통째로 교체한다 (설정 변경 시 호출).
 pub fn set_handlers(handlers: Vec<Box<dyn KeyHandler>>) {
     let mut d = dispatcher().lock().unwrap_or_else(|e| e.into_inner());
-    d.handlers = handlers;
+    d.replace(handlers);
 }
 
 fn on_event(ev: &KeyEvent) -> bool {
@@ -89,6 +99,16 @@ pub fn start() {
 mod tests {
     use super::*;
     use std::sync::Arc;
+
+    struct Releasable(Arc<Mutex<Vec<&'static str>>>);
+    impl KeyHandler for Releasable {
+        fn on_key(&mut self, _: &KeyEvent) -> KeyDecision {
+            KeyDecision::Pass
+        }
+        fn release(&mut self) {
+            self.0.lock().unwrap().push("released");
+        }
+    }
 
     struct Rec(Arc<Mutex<Vec<&'static str>>>, &'static str, KeyDecision);
     impl KeyHandler for Rec {
@@ -123,6 +143,16 @@ mod tests {
         ]);
         assert_eq!(d.handle(&key("KeyA", true)), KeyDecision::Pass);
         assert_eq!(*log.lock().unwrap(), vec!["a", "b"]);
+    }
+
+    #[test]
+    fn replace_releases_old_handlers_only() {
+        let log = Arc::new(Mutex::new(vec![]));
+        let mut d = Dispatcher::new(vec![Box::new(Releasable(log.clone()))]);
+        d.replace(vec![Box::new(Releasable(log.clone()))]);
+        assert_eq!(*log.lock().unwrap(), vec!["released"]);
+        d.replace(vec![]);
+        assert_eq!(*log.lock().unwrap(), vec!["released", "released"]);
     }
 
     #[test]

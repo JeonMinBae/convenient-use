@@ -356,6 +356,10 @@ impl KeyHandler for RemapHandler {
         Self::inject(&out.emit);
         if out.suppress { KeyDecision::Suppress } else { KeyDecision::Pass }
     }
+
+    fn release(&mut self) {
+        Self::inject(&self.engine.reset());
+    }
 }
 
 fn combo_error(c: &KeyCombo) -> Option<String> {

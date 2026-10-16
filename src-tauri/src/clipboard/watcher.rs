@@ -85,9 +85,18 @@ fn read_current(max_image_mb: u32) -> Option<ClipContent> {
     None
 }
 
+/// 너비·높이를 함께 해시한다. 바이트가 같아도 크기가 다르면 다른 이미지다.
+fn rgba_hash(rgba: &RgbaImage) -> String {
+    let mut h = Sha256::new();
+    h.update(rgba.width().to_le_bytes());
+    h.update(rgba.height().to_le_bytes());
+    h.update(rgba.as_raw());
+    h.finalize().iter().map(|b| format!("{b:02x}")).collect()
+}
+
 /// PNG 가 max_image_mb 를 넘으면 None.
 fn build_image(rgba: RgbaImage, max_image_mb: u32) -> Option<ClipContent> {
-    let rgba_hash: String = Sha256::digest(rgba.as_raw()).iter().map(|b| format!("{b:02x}")).collect();
+    let rgba_hash = rgba_hash(&rgba);
     let img = DynamicImage::ImageRgba8(rgba);
     let png = encode_png(&img)?;
     if png.len() as u64 > max_image_mb as u64 * 1024 * 1024 {
@@ -119,5 +128,15 @@ mod tests {
         let thumb = image::load_from_memory(&thumb_png).unwrap();
         assert_eq!((thumb.width(), thumb.height()), (160, 80));
         assert!(build_image(rgba, 0).is_none());
+    }
+
+    #[test]
+    fn hash_distinguishes_dimensions_with_same_bytes() {
+        let px = image::Rgba([1, 2, 3, 255]);
+        let a = RgbaImage::from_pixel(100, 200, px);
+        let b = RgbaImage::from_pixel(200, 100, px);
+        assert_eq!(a.as_raw(), b.as_raw());
+        assert_ne!(rgba_hash(&a), rgba_hash(&b));
+        assert_eq!(rgba_hash(&a), rgba_hash(&a.clone()));
     }
 }

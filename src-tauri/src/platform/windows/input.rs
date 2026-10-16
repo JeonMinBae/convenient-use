@@ -1,7 +1,7 @@
 use anyhow::{Result, bail};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     INPUT, INPUT_0, INPUT_KEYBOARD, KEYBD_EVENT_FLAGS, KEYBDINPUT, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP,
-    SendInput, VIRTUAL_KEY,
+    GetAsyncKeyState, SendInput, VIRTUAL_KEY,
 };
 
 use crate::remap::KeyCombo;
@@ -81,6 +81,25 @@ fn send_vks(seq: &[(u16, bool)]) -> Result<()> {
         bail!("SendInput 실패: {sent}/{} 전송", inputs.len());
     }
     Ok(())
+}
+
+/// 물리적으로 눌려 있는 Shift/Ctrl/Alt/Win 의 W3C code. 좌우를 구분한다.
+pub fn held_modifiers() -> Vec<String> {
+    const MODS: [(u16, &str); 8] = [
+        (0xA0, "ShiftLeft"),
+        (0xA1, "ShiftRight"),
+        (0xA2, "ControlLeft"),
+        (0xA3, "ControlRight"),
+        (0xA4, "AltLeft"),
+        (0xA5, "AltRight"),
+        (0x5B, "MetaLeft"),
+        (0x5C, "MetaRight"),
+    ];
+    // 최상위 비트(0x8000)가 현재 눌림 상태. i16 이므로 음수가 눌림이다
+    MODS.iter()
+        .filter(|(vk, _)| unsafe { GetAsyncKeyState(*vk as i32) } < 0)
+        .map(|(_, code)| code.to_string())
+        .collect()
 }
 
 pub fn send_paste() -> Result<()> {
