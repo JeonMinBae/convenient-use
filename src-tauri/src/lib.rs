@@ -9,6 +9,7 @@ mod launcher;
 mod platform;
 mod remap;
 mod settings;
+mod snippet;
 mod state;
 mod tray;
 mod window_layout;
@@ -18,6 +19,9 @@ use std::sync::{Mutex, RwLock};
 use tauri::{AppHandle, Manager};
 use tauri_plugin_autostart::ManagerExt as _;
 use tauri_plugin_global_shortcut::ShortcutState;
+
+use crate::keyboard::KeyHandler;
+use crate::settings::model::Settings;
 
 pub fn run() {
     tauri::Builder::default()
@@ -109,6 +113,8 @@ pub fn apply_settings(app: &AppHandle) -> usize {
     let failed = hotkeys.failures().len();
     drop(hotkeys);
 
+    keyboard::set_handlers(keyboard_handlers(app, &settings));
+
     let manager = app.autolaunch();
     match manager.is_enabled() {
         Ok(on) if on != settings.general.autostart => {
@@ -121,4 +127,13 @@ pub fn apply_settings(app: &AppHandle) -> usize {
         _ => {}
     }
     failed
+}
+
+/// 키보드 훅 핸들러 체인. 순서가 곧 우선순위다 (리매핑 핸들러는 맨 앞에 추가).
+fn keyboard_handlers(app: &AppHandle, settings: &Settings) -> Vec<Box<dyn KeyHandler>> {
+    let mut handlers: Vec<Box<dyn KeyHandler>> = Vec::new();
+    if settings.general.features.snippet {
+        handlers.push(Box::new(snippet::SnippetHandler::new(app.clone(), &settings.snippets)));
+    }
+    handlers
 }
