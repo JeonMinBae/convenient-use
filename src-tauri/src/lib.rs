@@ -2,6 +2,7 @@
 #![allow(dead_code)]
 
 mod commands;
+mod launcher;
 mod platform;
 mod remap;
 mod settings;
@@ -18,8 +19,10 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::get_settings,
             commands::export_settings,
-            commands::import_settings
+            commands::import_settings,
+            commands::list_installed_apps
         ])
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             tray::show_settings(app);
         }))

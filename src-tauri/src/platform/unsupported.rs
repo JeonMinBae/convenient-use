@@ -19,3 +19,15 @@ pub mod window_ops {
         anyhow::bail!("지원하지 않는 OS")
     }
 }
+
+pub mod process {
+    pub fn top_windows() -> anyhow::Result<Vec<(isize, String)>> {
+        anyhow::bail!("지원하지 않는 OS")
+    }
+    pub fn focus(_hwnd: isize) -> anyhow::Result<()> {
+        anyhow::bail!("지원하지 않는 OS")
+    }
+    pub fn minimize(_hwnd: isize) -> anyhow::Result<()> {
+        anyhow::bail!("지원하지 않는 OS")
+    }
+}

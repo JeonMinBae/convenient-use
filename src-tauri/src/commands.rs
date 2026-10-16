@@ -22,3 +22,8 @@ pub fn import_settings(state: State<'_, AppState>, path: String) -> Result<Setti
     *state.settings.write().unwrap() = imported.clone();
     Ok(imported)
 }
+
+#[tauri::command]
+pub fn list_installed_apps() -> Vec<crate::launcher::InstalledApp> {
+    crate::launcher::scan_start_menu()
+}
