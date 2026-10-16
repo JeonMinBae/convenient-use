@@ -31,39 +31,13 @@ fn sequence(combo: &KeyCombo) -> Result<Vec<(u16, bool)>> {
     Ok(seq)
 }
 
-// Task 9 의 keyboard/keys.rs 표로 대체될 최소 매핑
 fn key_vk(code: &str) -> Result<u16> {
-    let vk = match code {
-        "Backspace" => 0x08,
-        "Tab" => 0x09,
-        "Enter" => 0x0D,
-        "Escape" => 0x1B,
-        "ArrowLeft" => 0x25,
-        "ArrowUp" => 0x26,
-        "ArrowRight" => 0x27,
-        "ArrowDown" => 0x28,
-        _ => {
-            if let Some(c) = code.strip_prefix("Key").and_then(single_char).filter(char::is_ascii_uppercase) {
-                c as u16
-            } else if let Some(c) = code.strip_prefix("Digit").and_then(single_char).filter(char::is_ascii_digit) {
-                c as u16
-            } else {
-                bail!("지원하지 않는 키: {code}");
-            }
-        }
-    };
-    Ok(vk)
+    crate::keyboard::keys::code_to_vk(code).ok_or_else(|| anyhow::anyhow!("지원하지 않는 키: {code}"))
 }
 
-fn single_char(s: &str) -> Option<char> {
-    let mut it = s.chars();
-    let c = it.next()?;
-    it.next().is_none().then_some(c)
-}
-
-/// 화살표 등은 확장 키 플래그가 있어야 방향키로 인식된다 (없으면 숫자패드 키로 해석).
+/// 화살표·편집 키 등은 확장 키 플래그가 있어야 방향키로 인식된다 (없으면 숫자패드 키로 해석).
 fn is_extended(vk: u16) -> bool {
-    matches!(vk, 0x25..=0x28 | 0x5B)
+    matches!(vk, 0x21..=0x28 | 0x2C | 0x2D | 0x2E | 0x5B | 0x5C | 0x5D | 0x6F | 0x90 | 0xA3 | 0xA5)
 }
 
 pub fn send_keys(combos: &[KeyCombo]) -> Result<()> {

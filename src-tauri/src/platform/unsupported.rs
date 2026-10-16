@@ -47,3 +47,11 @@ pub mod input {
         anyhow::bail!("지원하지 않는 OS")
     }
 }
+
+pub mod hook {
+    use crate::keyboard::KeyEvent;
+
+    pub fn install(_cb: fn(&KeyEvent) -> bool) -> anyhow::Result<()> {
+        anyhow::bail!("지원하지 않는 OS")
+    }
+}

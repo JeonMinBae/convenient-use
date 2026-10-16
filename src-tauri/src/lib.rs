@@ -4,6 +4,7 @@
 mod clipboard;
 mod commands;
 mod hotkey;
+mod keyboard;
 mod launcher;
 mod platform;
 mod remap;
@@ -68,6 +69,7 @@ pub fn run() {
             });
             tray::create(app.handle())?;
             clipboard::watcher::start(app.handle().clone());
+            keyboard::start();
             let failed = apply_settings(app.handle());
             tray::notify_hotkey_failures(app.handle(), failed);
             Ok(())
