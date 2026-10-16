@@ -1,14 +1,14 @@
 use crate::window_layout::Rect;
 use anyhow::{Result, bail};
 use std::ffi::c_void;
-use windows::Win32::Foundation::{HWND, LPARAM, RECT};
+use windows::Win32::Foundation::{HWND, LPARAM, POINT, RECT};
 use windows::Win32::Graphics::Dwm::{DWMWA_EXTENDED_FRAME_BOUNDS, DwmGetWindowAttribute};
 use windows::Win32::Graphics::Gdi::{
     EnumDisplayMonitors, GetMonitorInfoW, HDC, HMONITOR, MONITOR_DEFAULTTONEAREST, MONITORINFO,
-    MonitorFromWindow,
+    MonitorFromPoint, MonitorFromWindow,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    GetForegroundWindow, GetWindowRect, IsZoomed, SW_RESTORE, SWP_NOACTIVATE, SWP_NOZORDER,
+    GetCursorPos, GetForegroundWindow, GetWindowRect, IsZoomed, SW_RESTORE, SWP_NOACTIVATE, SWP_NOZORDER,
     SetWindowPos, ShowWindow,
 };
 use windows::core::BOOL;
@@ -47,6 +47,13 @@ pub fn frame(hwnd: isize) -> Result<Rect> {
 pub fn monitor_work(hwnd: isize) -> Result<Rect> {
     let m = unsafe { MonitorFromWindow(hw(hwnd), MONITOR_DEFAULTTONEAREST) };
     work_of(m)
+}
+
+/// 마우스 커서가 있는 모니터의 작업 영역.
+pub fn monitor_at_cursor() -> Result<Rect> {
+    let mut p = POINT::default();
+    unsafe { GetCursorPos(&mut p)? };
+    work_of(unsafe { MonitorFromPoint(p, MONITOR_DEFAULTTONEAREST) })
 }
 
 fn work_of(m: HMONITOR) -> Result<Rect> {

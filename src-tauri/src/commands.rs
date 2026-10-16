@@ -93,3 +93,18 @@ pub fn delete_clip(state: State<'_, AppState>, id: i64) -> Result<(), String> {
 pub fn clear_clips(state: State<'_, AppState>) -> Result<(), String> {
     state.clips.lock().unwrap().clear_unpinned().map_err(|e| e.to_string())
 }
+
+/// 50ms 대기가 있는 붙여넣기이므로 별도 스레드에서 수행하고 바로 돌아온다.
+#[tauri::command]
+pub fn paste_clip(app: AppHandle, id: i64) {
+    std::thread::spawn(move || {
+        if let Err(e) = crate::clipboard::popup::paste(&app, id) {
+            log::warn!("붙여넣기 실패: {e:#}");
+        }
+    });
+}
+
+#[tauri::command]
+pub fn hide_clipboard_popup(app: AppHandle) -> Result<(), String> {
+    crate::clipboard::popup::hide(&app).map_err(|e| format!("{e:#}"))
+}

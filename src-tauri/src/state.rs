@@ -14,4 +14,6 @@ pub struct AppState {
     pub clips: Mutex<ClipStore>,
     /// 이 시각 이전의 클립보드 변경은 감시기가 기록하지 않는다
     pub clip_suppress_until: Mutex<Option<Instant>>,
+    /// 팝업을 띄우기 직전의 포그라운드 창 (붙여넣기 대상)
+    pub popup_prev: Mutex<Option<isize>>,
 }

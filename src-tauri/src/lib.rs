@@ -35,7 +35,9 @@ pub fn run() {
             commands::list_clips,
             commands::set_pinned,
             commands::delete_clip,
-            commands::clear_clips
+            commands::clear_clips,
+            commands::paste_clip,
+            commands::hide_clipboard_popup
         ])
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
@@ -61,6 +63,7 @@ pub fn run() {
                 hotkeys: Mutex::new(Default::default()),
                 clips: Mutex::new(clips),
                 clip_suppress_until: Mutex::new(None),
+                popup_prev: Mutex::new(None),
             });
             tray::create(app.handle())?;
             clipboard::watcher::start(app.handle().clone());
@@ -69,10 +72,17 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            // 상주 앱이므로 창 닫기는 종료가 아니라 숨김으로 처리한다
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
-                let _ = window.hide();
+            match event {
+                // 상주 앱이므로 창 닫기는 종료가 아니라 숨김으로 처리한다
+                tauri::WindowEvent::CloseRequested { api, .. } => {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
+                // 클립보드 팝업은 바깥을 클릭하면(포커스 상실) 닫힌다
+                tauri::WindowEvent::Focused(false) if window.label() == "clipboard-popup" => {
+                    let _ = window.hide();
+                }
+                _ => {}
             }
         })
         .run(tauri::generate_context!())

@@ -113,14 +113,15 @@ pub struct HotkeyFailure {
     pub reason: String,
 }
 
-/// 실제 OS 등록 대상. 클립보드 팝업은 Task 7 에서 연결하므로 아직 제외하고, 매크로는 리매핑이 처리한다.
+/// 실제 OS 등록 대상. 매크로는 리매핑이 처리한다.
 pub fn registrations(bindings: &[Binding]) -> Vec<(Action, &Binding)> {
     bindings
         .iter()
         .filter_map(|b| match &b.source {
             BindingSource::Launch(id) => Some((Action::LaunchItem(id.clone()), b)),
             BindingSource::Window(cmd) => Some((Action::Layout(*cmd), b)),
-            BindingSource::Clipboard | BindingSource::Macro(_) => None,
+            BindingSource::Clipboard => Some((Action::ClipboardPopup, b)),
+            BindingSource::Macro(_) => None,
         })
         .collect()
 }
@@ -204,7 +205,7 @@ pub fn dispatch(app: &AppHandle, id: u32) {
                 }
             }
             Action::Layout(cmd) => crate::window_layout::apply(cmd),
-            Action::ClipboardPopup => Ok(()), // Task 7
+            Action::ClipboardPopup => crate::clipboard::popup::show(&app),
         };
         if let Err(e) = result {
             log::warn!("단축키 동작 실패: {e:#}");
@@ -281,9 +282,13 @@ mod tests {
     }
 
     #[test]
-    fn clipboard_is_not_registered() {
-        let b = collect_bindings(&Settings::default()).unwrap();
-        assert_eq!(registrations(&b).len(), 16);
+    fn clipboard_registered_only_when_feature_on() {
+        let mut s = Settings::default();
+        let b = collect_bindings(&s).unwrap();
+        assert_eq!(registrations(&b).len(), 17);
+        assert!(registrations(&b).iter().any(|(a, _)| *a == Action::ClipboardPopup));
+        s.general.features.clipboard = false;
+        assert_eq!(registrations(&collect_bindings(&s).unwrap()).len(), 16);
     }
 
     #[test]

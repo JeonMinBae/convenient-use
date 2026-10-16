@@ -7,3 +7,62 @@ body {
   margin: 0;
   padding: 16px;
 }
+
+/* 클립보드 팝업 */
+.popup {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 32px);
+  gap: 8px;
+}
+.popup-search {
+  padding: 8px 10px;
+  font-size: 14px;
+}
+.popup-list {
+  flex: 1;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+}
+.clip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.clip.selected {
+  background: rgba(59, 130, 246, 0.2);
+}
+.clip-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.clip-thumb {
+  flex: 1;
+  min-width: 0;
+  max-height: 48px;
+  object-fit: contain;
+  object-position: left;
+}
+.clip-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  opacity: 0.5;
+}
+.clip-btn:hover,
+.clip-btn.on {
+  opacity: 1;
+}
+.clip-empty {
+  padding: 16px;
+  text-align: center;
+  opacity: 0.6;
+}

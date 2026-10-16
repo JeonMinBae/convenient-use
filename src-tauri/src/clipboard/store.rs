@@ -60,6 +60,9 @@ pub struct ClipItem {
     pub last_used_at: i64,
 }
 
+/// (id, kind, text, image_file, pinned, last_used_at)
+type Row = (i64, String, Option<String>, Option<String>, bool, i64);
+
 pub struct ClipStore {
     conn: Connection,
     images_dir: PathBuf,
@@ -168,16 +171,31 @@ impl ClipStore {
             Some(p) => stmt.query_map(params![limit, p], map)?.collect::<Result<_, _>>()?,
             None => stmt.query_map(params![limit], map)?.collect::<Result<_, _>>()?,
         };
-        Ok(rows
-            .into_iter()
-            .map(|(id, kind, text, image_file, pinned, last_used_at)| {
-                let files = (kind == "files").then(|| text.as_deref().unwrap_or("").split('\n').map(String::from).collect());
-                let thumbnail = image_file
-                    .and_then(|u| fs::read(self.thumb_path(&u)).ok())
-                    .map(|b| format!("data:image/png;base64,{}", STANDARD.encode(b)));
-                ClipItem { id, kind, text, files, thumbnail, pinned, last_used_at }
-            })
-            .collect())
+        Ok(rows.into_iter().map(|row| self.build_item(row)).collect())
+    }
+
+    /// 붙여넣기용 단건 조회. 이미지면 원본 PNG 경로를 함께 돌려준다.
+    pub fn get(&self, id: i64) -> rusqlite::Result<Option<(ClipItem, Option<PathBuf>)>> {
+        let row: Option<Row> = self
+            .conn
+            .query_row(
+                "SELECT id, kind, text, image_file, pinned, last_used_at FROM clips WHERE id = ?1",
+                [id],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)),
+            )
+            .optional()?;
+        Ok(row.map(|row| {
+            let path = row.3.as_deref().map(|u| self.image_path(u));
+            (self.build_item(row), path)
+        }))
+    }
+
+    fn build_item(&self, (id, kind, text, image_file, pinned, last_used_at): Row) -> ClipItem {
+        let files = (kind == "files").then(|| text.as_deref().unwrap_or("").split('\n').map(String::from).collect());
+        let thumbnail = image_file
+            .and_then(|u| fs::read(self.thumb_path(&u)).ok())
+            .map(|b| format!("data:image/png;base64,{}", STANDARD.encode(b)));
+        ClipItem { id, kind, text, files, thumbnail, pinned, last_used_at }
     }
 
     pub fn set_pinned(&mut self, id: i64, pinned: bool) -> rusqlite::Result<()> {
@@ -280,6 +298,18 @@ mod tests {
         assert!(items[0].thumbnail.as_deref().unwrap().starts_with("data:image/png;base64,"));
         assert_eq!(items[1].files.as_ref().unwrap().len(), 2);
         assert_eq!(s.list(Some("a.txt"), 200).unwrap().len(), 1);
+    }
+
+    #[test]
+    fn get_returns_item_and_image_path() {
+        let (mut s, d) = store();
+        let t = s.record(ClipContent::Text("hi".into()), 1, 500).unwrap();
+        let i = s.record(ClipContent::Image { png: vec![1], thumb_png: vec![2], rgba_hash: "h".into() }, 2, 500).unwrap();
+        let (item, path) = s.get(t).unwrap().unwrap();
+        assert_eq!((item.text.as_deref(), path), (Some("hi"), None));
+        let (_, path) = s.get(i).unwrap().unwrap();
+        assert!(path.unwrap().starts_with(d.path()));
+        assert!(s.get(999).unwrap().is_none());
     }
 
     #[test]

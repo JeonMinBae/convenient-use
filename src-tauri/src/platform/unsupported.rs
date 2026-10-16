@@ -12,6 +12,9 @@ pub mod window_ops {
     pub fn monitor_work(_hwnd: isize) -> anyhow::Result<Rect> {
         anyhow::bail!("지원하지 않는 OS")
     }
+    pub fn monitor_at_cursor() -> anyhow::Result<Rect> {
+        anyhow::bail!("지원하지 않는 OS")
+    }
     pub fn monitors() -> anyhow::Result<Vec<Rect>> {
         anyhow::bail!("지원하지 않는 OS")
     }
@@ -28,6 +31,19 @@ pub mod process {
         anyhow::bail!("지원하지 않는 OS")
     }
     pub fn minimize(_hwnd: isize) -> anyhow::Result<()> {
+        anyhow::bail!("지원하지 않는 OS")
+    }
+}
+
+pub mod input {
+    use crate::remap::KeyCombo;
+
+    pub const INJECTED_MARK: usize = 0x434F_4E56;
+
+    pub fn send_keys(_combos: &[KeyCombo]) -> anyhow::Result<()> {
+        anyhow::bail!("지원하지 않는 OS")
+    }
+    pub fn send_paste() -> anyhow::Result<()> {
         anyhow::bail!("지원하지 않는 OS")
     }
 }
