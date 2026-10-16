@@ -2,6 +2,7 @@
 #![allow(dead_code)]
 
 mod commands;
+mod hotkey;
 mod launcher;
 mod platform;
 mod remap;
@@ -10,27 +11,51 @@ mod state;
 mod tray;
 mod window_layout;
 
-use std::sync::RwLock;
+use std::sync::{Mutex, RwLock};
 
-use tauri::Manager;
+use tauri::{AppHandle, Manager};
+use tauri_plugin_autostart::ManagerExt as _;
+use tauri_plugin_global_shortcut::ShortcutState;
 
 pub fn run() {
     tauri::Builder::default()
+        // single-instance 는 다른 플러그인보다 먼저 등록해야 두 번째 실행을 바로 넘겨받는다
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            tray::show_settings(app);
+        }))
         .invoke_handler(tauri::generate_handler![
             commands::get_settings,
             commands::export_settings,
             commands::import_settings,
-            commands::list_installed_apps
+            commands::list_installed_apps,
+            commands::save_settings,
+            commands::set_hotkeys_paused,
+            commands::get_hotkey_failures
         ])
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            tray::show_settings(app);
-        }))
+        .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
+        .plugin(
+            tauri_plugin_global_shortcut::Builder::new()
+                .with_handler(|app, shortcut, event| {
+                    // 키를 뗄 때 이벤트는 무시한다 (누름 한 번에 한 번만 동작)
+                    if event.state() == ShortcutState::Pressed {
+                        hotkey::registry::dispatch(app, shortcut.id());
+                    }
+                })
+                .build(),
+        )
         .setup(|app| {
             let path = app.path().app_config_dir()?.join("settings.json");
             let store = settings::store::SettingsStore::new(path);
-            app.manage(state::AppState { settings: RwLock::new(store.load()), store });
+            app.manage(state::AppState {
+                settings: RwLock::new(store.load()),
+                store,
+                hotkeys: Mutex::new(Default::default()),
+            });
             tray::create(app.handle())?;
+            let failed = apply_settings(app.handle());
+            tray::notify_hotkey_failures(app.handle(), failed);
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -42,4 +67,30 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+/// 저장·가져오기·시작 시 설정을 실제 시스템 상태(단축키, 자동 시작)에 반영한다. 등록 실패 개수를 돌려준다.
+/// 메인 스레드에서 호출해야 한다: 단축키 등록이 메인 스레드를 거치므로, 다른 스레드에서 hotkeys 락을
+/// 잡은 채 기다리면 단축키 핸들러(메인 스레드)와 교착할 수 있다.
+pub fn apply_settings(app: &AppHandle) -> usize {
+    let state = app.state::<state::AppState>();
+    let settings = state.settings.read().unwrap().clone();
+
+    let mut hotkeys = state.hotkeys.lock().unwrap();
+    hotkeys.reload(app, &settings);
+    let failed = hotkeys.failures().len();
+    drop(hotkeys);
+
+    let manager = app.autolaunch();
+    match manager.is_enabled() {
+        Ok(on) if on != settings.general.autostart => {
+            let result = if settings.general.autostart { manager.enable() } else { manager.disable() };
+            if let Err(e) = result {
+                log::warn!("자동 시작 설정 실패: {e}");
+            }
+        }
+        Err(e) => log::warn!("자동 시작 상태 확인 실패: {e}"),
+        _ => {}
+    }
+    failed
 }

@@ -1,6 +1,7 @@
 use tauri::menu::{Menu, MenuEvent, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{AppHandle, Manager};
+use tauri_plugin_notification::NotificationExt;
 
 const MENU_SETTINGS: &str = "settings";
 const MENU_QUIT: &str = "quit";
@@ -46,5 +47,20 @@ pub fn show_settings(app: &AppHandle) {
         let _ = window.show();
         let _ = window.unminimize();
         let _ = window.set_focus();
+    }
+}
+
+pub fn notify_hotkey_failures(app: &AppHandle, count: usize) {
+    if count == 0 {
+        return;
+    }
+    let result = app
+        .notification()
+        .builder()
+        .title("Convenient Use")
+        .body(format!("단축키 {count}개를 등록하지 못했습니다"))
+        .show();
+    if let Err(e) = result {
+        log::warn!("알림 표시 실패: {e}");
     }
 }
