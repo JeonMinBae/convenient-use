@@ -205,14 +205,16 @@ export function RemapTab({ draft, onChange, maps }: Props) {
           }}
         />
         {excludedApps.map((a, i) => (
-          <div className="row" key={i}>
-            <input
-              className="grow"
-              placeholder="notepad.exe"
-              value={a}
-              onChange={(e) => setRemap({ excludedApps: excludedApps.map((x, k) => (k === i ? e.target.value : x)) })}
-            />
-            {delBtn(() => setRemap({ excludedApps: excludedApps.filter((_, k) => k !== i) }))}
+          <div className="card" key={i}>
+            <div className="row">
+              <input
+                className="grow"
+                placeholder="notepad.exe"
+                value={a}
+                onChange={(e) => setRemap({ excludedApps: excludedApps.map((x, k) => (k === i ? e.target.value : x)) })}
+              />
+              {delBtn(() => setRemap({ excludedApps: excludedApps.filter((_, k) => k !== i) }))}
+            </div>
           </div>
         ))}
         <button onClick={() => setRemap({ excludedApps: [...excludedApps, ""] })}>

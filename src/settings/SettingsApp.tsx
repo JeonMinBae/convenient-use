@@ -37,8 +37,13 @@ export default function SettingsApp() {
     setErrors([]);
   }, []);
 
+  const [loadFailed, setLoadFailed] = useState(false);
+
   useEffect(() => {
-    load().catch((e) => setNotice({ kind: "error", text: `설정을 불러오지 못했습니다: ${e}` }));
+    load().catch((e) => {
+      setLoadFailed(true);
+      setNotice({ kind: "error", text: `설정을 불러오지 못했습니다: ${e}` });
+    });
   }, [load]);
 
   if (!draft) {
@@ -46,7 +51,12 @@ export default function SettingsApp() {
       <div className="settings">
         <TitleBar />
         <div className="settings-loading">
-          {notice ? <InfoBar notice={notice} /> : <p className="empty">불러오는 중…</p>}
+          {notice ? (
+            <InfoBar notice={notice} onClose={() => setNotice(null)} />
+          ) : (
+            // 실패 알림을 닫은 뒤에도 로딩 중으로 보이지 않게 한다
+            <p className="empty">{loadFailed ? "설정을 불러오지 못했습니다." : "불러오는 중…"}</p>
+          )}
         </div>
       </div>
     );
