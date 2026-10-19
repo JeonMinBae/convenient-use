@@ -1,16 +1,18 @@
 import { useState } from "react";
 import { type Settings, clearClips } from "../api";
 import { HotkeyInput } from "../components/HotkeyInput";
+import type { Notice } from "../components/InfoBar";
+import { SettingsCard } from "../components/SettingsCard";
 import { type FieldMaps, clamp } from "./fields";
 
 interface Props {
   draft: Settings;
   onChange: (s: Settings) => void;
   maps: FieldMaps;
-  onMessage: (m: string) => void;
+  onNotice: (n: Notice) => void;
 }
 
-export function ClipboardTab({ draft, onChange, maps, onMessage }: Props) {
+export function ClipboardTab({ draft, onChange, maps, onNotice }: Props) {
   const c = draft.clipboard;
   const set = (patch: Partial<typeof c>) => onChange({ ...draft, clipboard: { ...c, ...patch } });
   // 입력 중 빈 값을 허용하려고 문자열로 들고 있다가 blur 때 범위로 보정한다
@@ -28,25 +30,23 @@ export function ClipboardTab({ draft, onChange, maps, onMessage }: Props) {
     if (!window.confirm("고정하지 않은 클립보드 항목을 모두 삭제할까요?")) return;
     try {
       await clearClips();
-      onMessage("클립보드 히스토리를 삭제했습니다.");
+      onNotice({ kind: "success", text: "클립보드 히스토리를 삭제했습니다." });
     } catch (e) {
-      onMessage(`삭제 실패: ${e}`);
+      onNotice({ kind: "error", text: `삭제 실패: ${e}` });
     }
   }
 
   return (
     <section>
-      <div className="row">
-        <span className="label">팝업 단축키</span>
+      <SettingsCard icon="clipboard" title="팝업 단축키">
         <HotkeyInput
           value={c.hotkey}
           error={maps.errors["clipboard.hotkey"]}
           failure={maps.failures["clipboard.hotkey"]}
           onChange={(hotkey) => set({ hotkey })}
         />
-      </div>
-      <div className="row">
-        <span className="label">최대 개수 (1–10000)</span>
+      </SettingsCard>
+      <SettingsCard title="최대 개수" description="1–10000개. 넘으면 오래된 항목부터 지웁니다(고정 제외)">
         <input
           type="number"
           min={1}
@@ -59,9 +59,8 @@ export function ClipboardTab({ draft, onChange, maps, onMessage }: Props) {
             set({ maxItems: v });
           }}
         />
-      </div>
-      <div className="row">
-        <span className="label">이미지 최대 MB (1–100)</span>
+      </SettingsCard>
+      <SettingsCard title="이미지 최대 크기" description="1–100MB. 넘는 이미지는 기록하지 않습니다">
         <input
           type="number"
           min={1}
@@ -74,10 +73,12 @@ export function ClipboardTab({ draft, onChange, maps, onMessage }: Props) {
             set({ maxImageMb: v });
           }}
         />
-      </div>
-      <div className="row">
-        <button onClick={doClear}>전체 삭제(고정 제외)</button>
-      </div>
+      </SettingsCard>
+      <SettingsCard icon="delete" title="히스토리 비우기" description="고정한 항목은 남깁니다">
+        <button className="danger" onClick={doClear}>
+          전체 삭제
+        </button>
+      </SettingsCard>
     </section>
   );
 }

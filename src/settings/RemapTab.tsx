@@ -1,7 +1,11 @@
 import { useState } from "react";
 import type { KeyCombo, RemapRule, Settings } from "../api";
 import { HotkeyInput } from "../components/HotkeyInput";
+import { Icon } from "../components/Icon";
+import { InfoBar } from "../components/InfoBar";
 import { KeyField } from "../components/Keycap";
+import { SettingsGroup } from "../components/SettingsCard";
+import { ToggleSwitch } from "../components/ToggleSwitch";
 import { keyLabel } from "../lib/accelerator";
 import type { FieldMaps } from "./fields";
 
@@ -64,7 +68,11 @@ function ComboEditor({ value, onChange, error }: { value: KeyCombo; onChange: (c
         </label>
       ))}
       <KeyInput value={value.key ?? ""} onChange={(key) => onChange({ ...value, key })} />
-      {value.key && <button onClick={() => onChange({ ...value, key: null })}>키 지우기</button>}
+      {value.key && (
+        <button className="subtle" onClick={() => onChange({ ...value, key: null })}>
+          키 지우기
+        </button>
+      )}
       {error && <span className="field-error">{error}</span>}
     </span>
   );
@@ -76,6 +84,11 @@ export function RemapTab({ draft, onChange, maps }: Props) {
   const setRule = (i: number, r: RemapRule) => setRemap({ rules: rules.map((x, k) => (k === i ? r : x)) });
   const err = (i: number, name: string) => maps.errors[`remap.rules.${i}.${name}`];
 
+  const delBtn = (onClick: () => void) => (
+    <button className="subtle icon-btn" title="삭제" aria-label="삭제" onClick={onClick}>
+      <Icon name="delete" />
+    </button>
+  );
   const row = (label: string, node: React.ReactNode) => (
     <div className="row">
       <span className="label">{label}</span>
@@ -85,15 +98,23 @@ export function RemapTab({ draft, onChange, maps }: Props) {
 
   return (
     <section>
-      <p className="empty">
-        이 탭에서 키를 녹화할 때도 리매핑이 동작 중이므로, 이미 바꾼 키는 바뀐 값으로 입력될 수 있습니다.
-      </p>
-      {rules.length === 0 && <p className="empty">등록된 규칙이 없습니다.</p>}
+      <InfoBar
+        notice={{
+          kind: "info",
+          text: "이 탭에서 키를 녹화할 때도 리매핑이 동작 중이므로, 이미 바꾼 키는 바뀐 값으로 입력될 수 있습니다.",
+        }}
+      />
+      {rules.length === 0 && (
+        <div className="empty-state">
+          <Icon name="keyboard" size={32} />
+          <span>등록된 규칙이 없습니다.</span>
+        </div>
+      )}
       {rules.map((r, i) => (
         <div className="card" key={i}>
-          <div className="row">
-            <strong className="grow">{TYPE_LABELS[r.type]}</strong>
-            <button onClick={() => setRemap({ rules: rules.filter((_, k) => k !== i) })}>삭제</button>
+          <div className="card-header">
+            <strong>{TYPE_LABELS[r.type]}</strong>
+            {delBtn(() => setRemap({ rules: rules.filter((_, k) => k !== i) }))}
           </div>
           {r.type === "simple" && (
             <>
@@ -114,10 +135,10 @@ export function RemapTab({ draft, onChange, maps }: Props) {
               {row(
                 "탭 동작",
                 <>
-                  <input
-                    type="checkbox"
+                  <ToggleSwitch
+                    label="탭 동작"
                     checked={r.tap !== null}
-                    onChange={(e) => setRule(i, { ...r, tap: e.target.checked ? { ...EMPTY } : null })}
+                    onChange={(on) => setRule(i, { ...r, tap: on ? { ...EMPTY } : null })}
                   />
                   {r.tap && <ComboEditor value={r.tap} error={err(i, "tap")} onChange={(tap) => setRule(i, { ...r, tap })} />}
                 </>,
@@ -135,11 +156,11 @@ export function RemapTab({ draft, onChange, maps }: Props) {
                     error={err(i, `mappings.${j}.to`)}
                     onChange={(to) => setRule(i, { ...r, mappings: r.mappings.map((x, k) => (k === j ? { ...x, to } : x)) })}
                   />
-                  <button onClick={() => setRule(i, { ...r, mappings: r.mappings.filter((_, k) => k !== j) })}>삭제</button>
+                  {delBtn(() => setRule(i, { ...r, mappings: r.mappings.filter((_, k) => k !== j) }))}
                 </div>
               ))}
               <button onClick={() => setRule(i, { ...r, mappings: [...r.mappings, { from: "", to: { ...EMPTY } }] })}>
-                매핑 추가
+                <Icon name="add" /> 매핑 추가
               </button>
             </>
           )}
@@ -158,36 +179,46 @@ export function RemapTab({ draft, onChange, maps }: Props) {
                     error={err(i, `steps.${j}`)}
                     onChange={(n) => setRule(i, { ...r, steps: r.steps.map((x, k) => (k === j ? n : x)) })}
                   />
-                  <button onClick={() => setRule(i, { ...r, steps: r.steps.filter((_, k) => k !== j) })}>삭제</button>
+                  {delBtn(() => setRule(i, { ...r, steps: r.steps.filter((_, k) => k !== j) }))}
                 </div>
               ))}
-              <button onClick={() => setRule(i, { ...r, steps: [...r.steps, { ...EMPTY }] })}>단계 추가</button>
+              <button onClick={() => setRule(i, { ...r, steps: [...r.steps, { ...EMPTY }] })}>
+                <Icon name="add" /> 단계 추가
+              </button>
             </>
           )}
         </div>
       ))}
-      <div className="row">
+      <div className="button-row">
         {(Object.keys(TYPE_LABELS) as RemapRule["type"][]).map((t) => (
           <button key={t} onClick={() => setRemap({ rules: [...rules, newRule(t)] })}>
-            {TYPE_LABELS[t]} 추가
+            <Icon name="add" /> {TYPE_LABELS[t]} 추가
           </button>
         ))}
       </div>
 
-      <h3>제외 앱</h3>
-      <p className="empty">포그라운드 창이 이 앱이면 리매핑을 하지 않습니다. 실행 파일 이름을 입력하세요 (예: notepad.exe).</p>
-      {excludedApps.map((a, i) => (
-        <div className="row" key={i}>
-          <input
-            className="grow"
-            placeholder="notepad.exe"
-            value={a}
-            onChange={(e) => setRemap({ excludedApps: excludedApps.map((x, k) => (k === i ? e.target.value : x)) })}
-          />
-          <button onClick={() => setRemap({ excludedApps: excludedApps.filter((_, k) => k !== i) })}>삭제</button>
-        </div>
-      ))}
-      <button onClick={() => setRemap({ excludedApps: [...excludedApps, ""] })}>제외 앱 추가</button>
+      <SettingsGroup title="제외 앱">
+        <InfoBar
+          notice={{
+            kind: "info",
+            text: "포그라운드 창이 이 앱이면 리매핑을 하지 않습니다. 실행 파일 이름을 입력하세요 (예: notepad.exe).",
+          }}
+        />
+        {excludedApps.map((a, i) => (
+          <div className="row" key={i}>
+            <input
+              className="grow"
+              placeholder="notepad.exe"
+              value={a}
+              onChange={(e) => setRemap({ excludedApps: excludedApps.map((x, k) => (k === i ? e.target.value : x)) })}
+            />
+            {delBtn(() => setRemap({ excludedApps: excludedApps.filter((_, k) => k !== i) }))}
+          </div>
+        ))}
+        <button onClick={() => setRemap({ excludedApps: [...excludedApps, ""] })}>
+          <Icon name="add" /> 제외 앱 추가
+        </button>
+      </SettingsGroup>
     </section>
   );
 }

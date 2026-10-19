@@ -87,8 +87,6 @@ export default function SettingsApp() {
   const issuePages = pagesWithIssues(maps);
   const dirty = isDirty(draft, baseline);
   const onChange = (s: Settings) => setDraft(s);
-  // Task 7 에서 각 탭이 Notice 를 직접 넘기도록 바꾼다. 그 전까지는 문구로 종류를 가른다
-  const onMessage = (text: string) => setNotice({ kind: /실패/.test(text) ? "error" : "success", text });
 
   return (
     <div className="settings">
@@ -111,7 +109,7 @@ export default function SettingsApp() {
               <GeneralTab
                 draft={draft}
                 onChange={onChange}
-                onMessage={onMessage}
+                onNotice={setNotice}
                 onImported={(s) => {
                   // 가져오기는 백엔드에 즉시 반영되므로 받은 설정이 곧 기준선이다. 단축키 등록 실패만 다시 조회한다
                   setDraft(s);
@@ -123,7 +121,7 @@ export default function SettingsApp() {
             )}
             {tab === "launch" && <LaunchTab draft={draft} onChange={onChange} maps={maps} />}
             {tab === "window" && <WindowTab draft={draft} onChange={onChange} maps={maps} />}
-            {tab === "clipboard" && <ClipboardTab draft={draft} onChange={onChange} maps={maps} onMessage={onMessage} />}
+            {tab === "clipboard" && <ClipboardTab draft={draft} onChange={onChange} maps={maps} onNotice={setNotice} />}
             {tab === "snippet" && <SnippetTab draft={draft} onChange={onChange} maps={maps} />}
             {tab === "remap" && <RemapTab draft={draft} onChange={onChange} maps={maps} />}
           </main>

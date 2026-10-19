@@ -1,4 +1,6 @@
 import type { Settings, Snippet } from "../api";
+import { Icon } from "../components/Icon";
+import { InfoBar } from "../components/InfoBar";
 import type { FieldMaps } from "./fields";
 
 interface Props {
@@ -16,8 +18,18 @@ export function SnippetTab({ draft, onChange, maps }: Props) {
 
   return (
     <section>
-      <p className="empty">키워드를 입력하는 즉시 텍스트로 바뀝니다. 영문·숫자·기호 2~32자, 한글 입력 모드에서는 동작하지 않습니다.</p>
-      {items.length === 0 && <p className="empty">등록된 스니펫이 없습니다.</p>}
+      <InfoBar
+        notice={{
+          kind: "info",
+          text: "키워드를 입력하는 즉시 텍스트로 바뀝니다. 영문·숫자·기호 2~32자, 한글 입력 모드에서는 동작하지 않습니다.",
+        }}
+      />
+      {items.length === 0 && (
+        <div className="empty-state">
+          <Icon name="textExpand" size={32} />
+          <span>등록된 스니펫이 없습니다.</span>
+        </div>
+      )}
       {items.map((s) => {
         const error = maps.errors[`snippets.${s.id}.keyword`];
         return (
@@ -30,7 +42,9 @@ export function SnippetTab({ draft, onChange, maps }: Props) {
                 aria-invalid={!!error}
                 onChange={(e) => update(s.id, { keyword: e.target.value })}
               />
-              <button onClick={() => remove(s.id)}>삭제</button>
+              <button className="subtle icon-btn" title="삭제" aria-label="삭제" onClick={() => remove(s.id)}>
+                <Icon name="delete" />
+              </button>
             </div>
             {error && <p className="field-error">{error}</p>}
             <textarea
@@ -44,7 +58,9 @@ export function SnippetTab({ draft, onChange, maps }: Props) {
           </div>
         );
       })}
-      <button onClick={add}>스니펫 추가</button>
+      <button onClick={add}>
+        <Icon name="add" /> 스니펫 추가
+      </button>
     </section>
   );
 }

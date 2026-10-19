@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { type InstalledApp, type LaunchItem, type OsPath, type Settings, listInstalledApps } from "../api";
 import { HotkeyInput } from "../components/HotkeyInput";
+import { Icon } from "../components/Icon";
 import { type FieldMaps, osKey } from "./fields";
 
 interface Props {
@@ -39,7 +40,12 @@ export function LaunchTab({ draft, onChange, maps }: Props) {
 
   return (
     <section>
-      {items.length === 0 && <p className="empty">등록된 항목이 없습니다.</p>}
+      {items.length === 0 && (
+        <div className="empty-state">
+          <Icon name="rocket" size={32} />
+          <span>등록된 항목이 없습니다.</span>
+        </div>
+      )}
       {items.map((item) => (
         <LaunchRow
           key={item.id}
@@ -50,7 +56,9 @@ export function LaunchTab({ draft, onChange, maps }: Props) {
           onRemove={() => remove(item.id)}
         />
       ))}
-      <button onClick={add}>항목 추가</button>
+      <button onClick={add}>
+        <Icon name="add" /> 항목 추가
+      </button>
     </section>
   );
 }
@@ -89,6 +97,7 @@ function LaunchRow({ item, apps, maps, onChange, onRemove }: RowProps) {
           value={item.name}
           onChange={(e) => onChange((i) => ({ ...i, name: e.target.value }))}
         />
+        <Icon name={t.type === "app" ? "apps" : "globe"} size={20} />
         <select
           value={t.type}
           onChange={(e) =>
@@ -107,7 +116,9 @@ function LaunchRow({ item, apps, maps, onChange, onRemove }: RowProps) {
           failure={maps.failures[field]}
           onChange={(hotkey) => onChange((i) => ({ ...i, hotkey }))}
         />
-        <button onClick={onRemove}>삭제</button>
+        <button className="subtle icon-btn" title="삭제" aria-label="삭제" onClick={onRemove}>
+          <Icon name="delete" />
+        </button>
       </div>
 
       {t.type === "app" ? (
@@ -128,12 +139,15 @@ function LaunchRow({ item, apps, maps, onChange, onRemove }: RowProps) {
             ))}
           </select>
           <button
+            className="icon-btn"
+            title="파일 선택"
+            aria-label="파일 선택"
             onClick={async () => {
               const p = await pickExecutable();
               if (p) setApp(p);
             }}
           >
-            파일 선택
+            <Icon name="folderOpen" />
           </button>
           <input
             className="grow"
@@ -152,14 +166,17 @@ function LaunchRow({ item, apps, maps, onChange, onRemove }: RowProps) {
           />
           <input readOnly className="grow" placeholder="기본 브라우저" value={currentPath(t.browser)} />
           <button
+            className="icon-btn"
+            title="브라우저 선택"
+            aria-label="브라우저 선택"
             onClick={async () => {
               const p = await pickExecutable();
               if (p) onChange((i) => ({ ...i, target: { ...t, browser: withPath(t.browser, p) } }));
             }}
           >
-            브라우저 선택
+            <Icon name="folderOpen" />
           </button>
-          <button onClick={() => onChange((i) => ({ ...i, target: { ...t, browser: withPath(t.browser, null) } }))}>
+          <button className="subtle" onClick={() => onChange((i) => ({ ...i, target: { ...t, browser: withPath(t.browser, null) } }))}>
             지우기
           </button>
         </div>

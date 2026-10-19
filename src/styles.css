@@ -701,3 +701,33 @@ button.sidebar-item.active::before {
   height: 32px;
   padding: 0;
 }
+
+/* 설정 페이지 공통 */
+button:has(> svg:first-child) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.card-header > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 32px;
+  color: var(--text-secondary);
+}
