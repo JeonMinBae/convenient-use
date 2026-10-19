@@ -37,6 +37,8 @@ export default function ClipboardPopup() {
   const exhausted = useRef(false);
   const loadingMore = useRef(false);
   const [detail, setDetail] = useState<ClipDetail | null>(null);
+  // 목록을 다시 받을 때마다 증가. 선택 id 가 같아도 마지막 사용 시간 등이 바뀌었을 수 있다
+  const [listVersion, setListVersion] = useState(0);
   const detailReq = useRef(0);
   const selectedId = clips[sel]?.id;
 
@@ -49,6 +51,7 @@ export default function ClipboardPopup() {
       if (id !== reqId.current) return;
       exhausted.current = items.length < CLIP_PAGE_SIZE;
       setClips(items);
+      setListVersion((v) => v + 1);
       setSel((i) => Math.min(i, Math.max(items.length - 1, 0)));
     } catch {
       if (id === reqId.current) setClips([]);
@@ -111,7 +114,7 @@ export default function ClipboardPopup() {
       }
     }, 80);
     return () => clearTimeout(t);
-  }, [selectedId]);
+  }, [selectedId, listVersion]);
 
   useEffect(() => {
     list.current?.children[sel]?.scrollIntoView({ block: "nearest" });

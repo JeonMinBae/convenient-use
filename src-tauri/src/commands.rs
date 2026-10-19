@@ -100,9 +100,15 @@ pub fn list_clips(
     state.clips.lock().unwrap().list(query.as_deref(), CLIP_PAGE_SIZE, offset.unwrap_or(0)).map_err(|e| e.to_string())
 }
 
+/// 원본 이미지(최대 10MB) 읽기·인코딩이 메인 스레드를 막지 않도록 블로킹 스레드에서 수행한다.
 #[tauri::command]
-pub fn get_clip_detail(state: State<'_, AppState>, id: i64) -> Result<Option<crate::clipboard::store::ClipDetail>, String> {
-    state.clips.lock().unwrap().detail(id).map_err(|e| e.to_string())
+pub async fn get_clip_detail(app: AppHandle, id: i64) -> Result<Option<crate::clipboard::store::ClipDetail>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        use tauri::Manager;
+        app.state::<AppState>().clips.lock().unwrap().detail(id).map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]

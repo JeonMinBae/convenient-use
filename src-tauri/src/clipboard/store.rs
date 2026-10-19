@@ -86,8 +86,10 @@ fn io_err(e: std::io::Error) -> rusqlite::Error {
 fn migrate(conn: &Connection) -> rusqlite::Result<()> {
     let has = conn.prepare("SELECT 1 FROM pragma_table_info('clips') WHERE name = 'created_at'")?.exists([])?;
     if !has {
-        conn.execute_batch("ALTER TABLE clips ADD COLUMN created_at INTEGER; UPDATE clips SET created_at = last_used_at;")?;
+        conn.execute_batch("ALTER TABLE clips ADD COLUMN created_at INTEGER")?;
     }
+    // 컬럼 추가 직후 종료돼 NULL 로 남은 행도 다음 시작 때 보정한다
+    conn.execute_batch("UPDATE clips SET created_at = last_used_at WHERE created_at IS NULL")?;
     Ok(())
 }
 
@@ -430,6 +432,18 @@ mod tests {
         let s = ClipStore::init(conn, dir.path()).unwrap();
         let d = s.detail(1).unwrap().unwrap();
         assert_eq!((d.created_at, d.last_used_at), (77, 77));
+    }
+
+    #[test]
+    fn migrate_backfills_null_created_at_when_column_already_exists() {
+        let dir = tempfile::tempdir().unwrap();
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(SCHEMA).unwrap();
+        conn.execute_batch("INSERT INTO clips (kind, text, hash, last_used_at) VALUES ('text', 'x', 'h', 55);").unwrap();
+        let s = ClipStore::init(conn, dir.path()).unwrap();
+        assert_eq!(s.detail(1).unwrap().unwrap().created_at, 55);
+        let raw: Option<i64> = s.conn.query_row("SELECT created_at FROM clips WHERE id = 1", [], |r| r.get(0)).unwrap();
+        assert_eq!(raw, Some(55));
     }
 
     #[test]
