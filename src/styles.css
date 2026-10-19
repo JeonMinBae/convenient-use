@@ -465,3 +465,149 @@ input[type="checkbox"] {
   flex: 1;
   overflow-y: auto;
 }
+
+/* 토글 스위치 */
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  cursor: pointer;
+}
+.toggle-text {
+  min-width: 1.5em; /* 켬/끔 전환 시 트랙이 밀리지 않게 */
+  text-align: right;
+}
+.toggle input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.toggle-track {
+  width: 40px;
+  height: 20px;
+  border-radius: 10px;
+  border: 1px solid var(--text-secondary);
+  position: relative;
+  transition: background var(--motion-fast) var(--ease);
+}
+.toggle-thumb {
+  position: absolute;
+  top: 50%;
+  left: 4px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  transform: translateY(-50%);
+  transition: left var(--motion-fast) var(--ease), width var(--motion-fast) var(--ease), height var(--motion-fast) var(--ease);
+}
+.toggle:hover .toggle-thumb {
+  width: 14px;
+  height: 14px;
+}
+.toggle input:checked + .toggle-track {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.toggle input:checked + .toggle-track .toggle-thumb {
+  left: 22px;
+  background: var(--on-accent);
+}
+.toggle input:focus-visible + .toggle-track {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+/* 설정 카드·그룹 */
+.settings-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 14px var(--space-4);
+  min-height: 64px;
+  margin-bottom: var(--space-1);
+  background: var(--layer);
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+}
+.settings-card-icon {
+  flex-shrink: 0;
+  color: var(--text);
+}
+.settings-card-text {
+  flex: 1;
+  min-width: 0;
+}
+.settings-card-title {
+  font-size: 14px;
+}
+.settings-card-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.settings-card-control {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.settings-group {
+  margin-top: var(--space-6);
+}
+.settings-group-title {
+  margin: 0 0 var(--space-2);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* InfoBar */
+.infobar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 10px var(--space-3);
+  margin-bottom: var(--space-3);
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius);
+}
+.infobar-icon {
+  flex-shrink: 0;
+}
+.infobar-text {
+  flex: 1;
+}
+.infobar.success {
+  background: var(--success-bg);
+}
+.infobar.success .infobar-icon {
+  color: var(--success);
+}
+.infobar.warning {
+  background: var(--warning-bg);
+}
+.infobar.warning .infobar-icon {
+  color: var(--warning);
+}
+.infobar.error {
+  background: var(--danger-bg);
+}
+.infobar.error .infobar-icon {
+  color: var(--danger);
+}
+.infobar.info {
+  background: var(--info-bg);
+}
+.infobar.info .infobar-icon {
+  color: var(--accent);
+}
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+}
