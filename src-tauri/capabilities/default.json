@@ -3,5 +3,11 @@
   "identifier": "default",
   "description": "Capability for the app windows",
   "windows": ["settings", "clipboard-popup"],
-  "permissions": ["core:default", "dialog:default"]
+  "permissions": [
+    "core:default",
+    "core:window:allow-minimize",
+    "core:window:allow-close",
+    "core:window:allow-start-dragging",
+    "dialog:default"
+  ]
 }
