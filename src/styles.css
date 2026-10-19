@@ -270,12 +270,45 @@ input[type="checkbox"] {
   align-items: center;
   gap: 6px;
 }
-.hotkey {
-  width: 190px;
+.keyfield {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 190px;
+  min-height: 32px;
+  padding: 3px 10px;
+  background: var(--control);
+  border: 1px solid var(--stroke);
+  border-bottom-color: var(--stroke-control-bottom);
+  border-radius: var(--radius-sm);
   cursor: pointer;
 }
-.hotkey.error {
+.keyfield:hover {
+  background: var(--control-hover);
+}
+.keyfield.error {
   border-color: var(--danger);
+}
+.keyfield.recording {
+  border-color: var(--accent);
+  animation: keyfield-pulse 1.2s var(--ease) infinite;
+}
+@keyframes keyfield-pulse {
+  50% { box-shadow: 0 0 0 3px var(--accent-subtle); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .keyfield.recording { animation: none; }
+}
+.keyfield-hint {
+  color: var(--text-secondary);
+}
+.keycap {
+  padding: 1px 6px;
+  font: 12px/1.5 var(--font);
+  background: var(--layer);
+  border: 1px solid var(--stroke-strong);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-sm);
 }
 .footer {
   display: flex;

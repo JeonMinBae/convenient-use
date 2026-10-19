@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { setHotkeysPaused } from "../api";
-import { toAccelerator } from "../lib/accelerator";
+import { acceleratorKeys, toAccelerator } from "../lib/accelerator";
+import { KeyField } from "./Keycap";
 
 interface Props {
   value: string;
@@ -23,33 +24,32 @@ export function HotkeyInput({ value, onChange, error, failure }: Props) {
   };
   return (
     <span className="hotkey-wrap">
-      <input
-        readOnly
-        className={error ? "hotkey error" : "hotkey"}
-        value={recording ? "키를 누르세요…" : value}
+      <KeyField
+        keys={acceleratorKeys(value)}
+        recording={recording}
         placeholder="미지정"
+        error={error}
+        title={error ?? failure}
         onFocus={start}
         onBlur={stop}
         onKeyDown={(e) => {
           e.preventDefault();
-          const el = e.target as HTMLInputElement;
           if (e.key === "Escape") {
-            el.blur();
+            e.currentTarget.blur();
             return;
           }
           // 모디파이어 없는 Backspace/Delete 는 단축키 지우기
           if ((e.key === "Backspace" || e.key === "Delete") && !e.ctrlKey && !e.altKey && !e.shiftKey && !e.metaKey) {
             onChange("");
-            el.blur();
+            e.currentTarget.blur();
             return;
           }
           const accel = toAccelerator(e.nativeEvent);
           if (accel) {
             onChange(accel);
-            el.blur();
+            e.currentTarget.blur();
           }
         }}
-        title={error ?? failure}
       />
       {failure && (
         <span className="badge" title={failure}>

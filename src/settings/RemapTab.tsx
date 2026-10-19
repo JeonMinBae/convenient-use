@@ -1,5 +1,8 @@
+import { useState } from "react";
 import type { KeyCombo, RemapRule, Settings } from "../api";
 import { HotkeyInput } from "../components/HotkeyInput";
+import { KeyField } from "../components/Keycap";
+import { keyLabel } from "../lib/accelerator";
 import type { FieldMaps } from "./fields";
 
 interface Props {
@@ -28,18 +31,21 @@ function newRule(type: RemapRule["type"]): RemapRule {
 
 /** 물리 키(KeyboardEvent.code)를 녹화한다. 수정자 단독 키도 유효하다 (예: CapsLock, AltRight). */
 function KeyInput({ value, onChange, error }: { value: string; onChange: (v: string) => void; error?: string }) {
+  const [recording, setRecording] = useState(false);
   return (
     <span className="hotkey-wrap">
-      <input
-        readOnly
-        className={error ? "hotkey error" : "hotkey"}
-        value={value}
+      <KeyField
+        keys={value ? [keyLabel(value)] : []}
+        recording={recording}
         placeholder="클릭 후 키를 누르세요"
+        error={error}
+        title={error}
+        onFocus={() => setRecording(true)}
+        onBlur={() => setRecording(false)}
         onKeyDown={(e) => {
           e.preventDefault();
           onChange(e.nativeEvent.code);
         }}
-        title={error}
       />
       {error && <span className="field-error">{error}</span>}
     </span>

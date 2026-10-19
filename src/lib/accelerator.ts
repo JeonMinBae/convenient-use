@@ -14,3 +14,24 @@ export function toAccelerator(e: Pick<KeyboardEvent, "ctrlKey" | "altKey" | "shi
   parts.push(e.code);
   return parts.join("+");
 }
+
+const KEY_LABELS: Record<string, string> = {
+  ArrowLeft: "←", ArrowRight: "→", ArrowUp: "↑", ArrowDown: "↓",
+  Super: "Win", MetaLeft: "Win", MetaRight: "Right Win",
+  ControlLeft: "Ctrl", ControlRight: "Right Ctrl", AltLeft: "Alt", AltRight: "Right Alt",
+  ShiftLeft: "Shift", ShiftRight: "Right Shift",
+  Backquote: "`", Minus: "-", Equal: "=", BracketLeft: "[", BracketRight: "]",
+  Backslash: "\\", Semicolon: ";", Quote: "'", Comma: ",", Period: ".", Slash: "/",
+};
+
+/** KeyboardEvent.code 또는 accelerator 수정자 이름을 키캡에 쓸 짧은 라벨로 바꾼다 */
+export function keyLabel(code: string): string {
+  if (KEY_LABELS[code]) return KEY_LABELS[code];
+  const m = /^(?:Key|Digit)(.)$/.exec(code);
+  if (m) return m[1];
+  if (code.startsWith("Numpad")) return `Num ${code.slice(6)}`;
+  return code;
+}
+
+/** "Ctrl+Shift+KeyV" → ["Ctrl", "Shift", "V"]. 빈 문자열은 미지정 */
+export const acceleratorKeys = (accel: string): string[] => (accel ? accel.split("+").map(keyLabel) : []);
