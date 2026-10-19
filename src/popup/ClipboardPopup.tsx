@@ -11,7 +11,11 @@ import {
   pasteClip,
   setPinned,
 } from "../api";
+import { Icon, type IconName } from "../components/Icon";
+import { type ClipKind, clipKind, relativeTime } from "../lib/clipList";
 import ClipDetailPane from "./ClipDetailPane";
+
+const KIND_ICON: Record<ClipKind, IconName> = { text: "textDescription", link: "link", image: "image", files: "document" };
 
 function preview(c: ClipItem) {
   if (c.kind === "files") {
@@ -27,6 +31,7 @@ export default function ClipboardPopup() {
   const [clips, setClips] = useState<ClipItem[]>([]);
   const [sel, setSel] = useState(0);
   const input = useRef<HTMLInputElement>(null);
+  const root = useRef<HTMLDivElement>(null);
   const queryRef = useRef(query);
   queryRef.current = query;
   const list = useRef<HTMLUListElement>(null);
@@ -77,12 +82,22 @@ export default function ClipboardPopup() {
     }
   }, []);
 
+  // 같은 클래스를 다시 붙여도 애니메이션이 재생되지 않으므로 reflow 를 끼워 넣는다
+  const restartEnter = () => {
+    const el = root.current;
+    if (!el) return;
+    el.classList.remove("enter");
+    void el.offsetWidth;
+    el.classList.add("enter");
+  };
+
   // 열릴 때마다 검색어·선택을 초기화하고 입력창에 포커스
   useEffect(() => {
     const un = listen("clipboard-popup-opened", () => {
       setQuery("");
       setSel(0);
       refetch("");
+      restartEnter();
       input.current?.focus();
     });
     return () => {
@@ -135,16 +150,21 @@ export default function ClipboardPopup() {
     }
   }
 
+  const now = Date.now();
+
   return (
-    <div className="popup" onKeyDown={onKeyDown}>
-      <input
-        ref={input}
-        className="popup-search"
-        autoFocus
-        placeholder="클립보드 검색"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-      />
+    <div className="popup" ref={root} onKeyDown={onKeyDown}>
+      <div className="search-box">
+        <Icon name="search" className="search-box-icon" />
+        <input
+          ref={input}
+          className="popup-search"
+          autoFocus
+          placeholder="클립보드 검색"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      </div>
       <div className="popup-body">
         <ul
           className="popup-list"
@@ -161,33 +181,37 @@ export default function ClipboardPopup() {
               onMouseMove={() => setSel(i)}
               onClick={() => pasteClip(c.id)}
             >
+              <Icon name={KIND_ICON[clipKind(c)]} className="clip-kind" />
               {c.kind === "image" && c.thumbnail ? (
                 <img className="clip-thumb" src={c.thumbnail} alt="" />
               ) : (
                 <span className="clip-text">{preview(c)}</span>
               )}
-              <button
-                className={c.pinned ? "clip-btn on" : "clip-btn"}
-                title={c.pinned ? "고정 해제" : "고정"}
-                onClick={async (e) => {
-                  e.stopPropagation();
-                  await setPinned(c.id, !c.pinned);
-                  refetch(queryRef.current);
-                }}
-              >
-                {c.pinned ? "★" : "☆"}
-              </button>
-              <button
-                className="clip-btn"
-                title="삭제"
-                onClick={async (e) => {
-                  e.stopPropagation();
-                  await deleteClip(c.id);
-                  refetch(queryRef.current);
-                }}
-              >
-                ✕
-              </button>
+              <span className="clip-time">{relativeTime(c.lastUsedAt, now)}</span>
+              <span className="clip-actions">
+                <button
+                  className={c.pinned ? "clip-btn on" : "clip-btn"}
+                  title={c.pinned ? "고정 해제" : "고정"}
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    await setPinned(c.id, !c.pinned);
+                    refetch(queryRef.current);
+                  }}
+                >
+                  <Icon name={c.pinned ? "starFilled" : "star"} />
+                </button>
+                <button
+                  className="clip-btn"
+                  title="삭제"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    await deleteClip(c.id);
+                    refetch(queryRef.current);
+                  }}
+                >
+                  <Icon name="delete" />
+                </button>
+              </span>
             </li>
           ))}
           {clips.length === 0 && <li className="clip-empty">항목이 없습니다</li>}

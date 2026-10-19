@@ -11,6 +11,7 @@
   --on-accent: #ffffff;
 
   --bg-solid: #f3f3f3; /* 재질이 없을 때 창 배경 */
+  --popup-tint: rgba(252, 252, 252, 0.6); /* 팝업 Acrylic 위에 얹는 색 */
   --layer: rgba(255, 255, 255, 0.7); /* 카드 */
   --layer-hover: rgba(249, 249, 249, 0.6);
   --layer-alt: rgba(0, 0, 0, 0.03); /* 사이드바 선택·hover */
@@ -58,6 +59,7 @@
     --accent-subtle: rgba(60, 207, 180, 0.14);
     --on-accent: #00201b;
     --bg-solid: #202020;
+    --popup-tint: rgba(32, 32, 32, 0.5);
     --layer: rgba(255, 255, 255, 0.0512);
     --layer-hover: rgba(255, 255, 255, 0.0837);
     --layer-alt: rgba(255, 255, 255, 0.0419);
@@ -318,10 +320,28 @@ input[type="checkbox"] {
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: var(--space-4);
+  padding: var(--space-3);
   gap: var(--space-2);
+  background: var(--bg-solid);
+}
+:root[data-backdrop="on"] .popup {
+  background: var(--popup-tint);
+}
+.search-box {
+  position: relative;
+}
+.search-box-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-secondary);
+  pointer-events: none;
 }
 .popup-search {
+  width: 100%;
+  height: 36px;
+  padding-left: 34px;
   font-size: 14px;
 }
 .popup-body {
@@ -335,12 +355,16 @@ input[type="checkbox"] {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  border-left: 1px solid var(--stroke-strong);
-  padding-left: var(--space-3);
+  background: var(--layer);
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius);
+  padding: var(--space-3);
 }
 .clip-detail.empty {
   align-items: center;
   justify-content: center;
+  gap: var(--space-2);
+  color: var(--text-secondary);
 }
 .clip-detail-body {
   flex: 1;
@@ -383,10 +407,12 @@ input[type="checkbox"] {
   overflow-y: auto;
 }
 .clip {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: var(--space-1);
-  padding: 6px var(--space-2);
+  gap: 10px;
+  min-height: 40px;
+  padding: 6px 10px;
   border-radius: var(--radius-sm);
   cursor: pointer;
 }
@@ -395,6 +421,20 @@ input[type="checkbox"] {
 }
 .clip.selected {
   background: var(--accent-subtle);
+}
+.clip.selected::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+.clip-kind {
+  flex-shrink: 0;
+  color: var(--text-secondary);
 }
 .clip-text {
   flex: 1;
@@ -410,21 +450,56 @@ input[type="checkbox"] {
   object-fit: contain;
   object-position: left;
 }
+.clip-time {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.clip-actions {
+  display: inline-flex;
+  gap: 2px;
+}
 .clip-btn {
+  display: inline-flex;
+  align-items: center;
   min-height: 0;
-  padding: 2px 6px;
+  padding: 4px;
   border-color: transparent;
   background: transparent;
-  opacity: 0.6;
+  color: var(--text-secondary);
+  visibility: hidden; /* 자리는 유지해 hover 때 행 레이아웃이 흔들리지 않게 한다 */
 }
-.clip-btn:hover,
+.clip:hover .clip-btn,
+.clip.selected .clip-btn,
 .clip-btn.on {
-  opacity: 1;
+  visibility: visible;
+}
+.clip-btn:hover {
+  background: var(--control-hover);
+  color: var(--text);
+}
+.clip-btn.on {
+  color: var(--accent);
 }
 .clip-empty {
   padding: var(--space-4);
   text-align: center;
   color: var(--text-secondary);
+}
+.popup.enter {
+  animation: popup-enter var(--motion-fast) var(--ease);
+}
+@keyframes popup-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .popup.enter {
+    animation: none;
+  }
 }
 
 /* 설정 창 */

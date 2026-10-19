@@ -1,8 +1,15 @@
 import type { ClipDetail } from "../api";
+import { Icon } from "../components/Icon";
 import { formatTime, sizeLabel } from "../lib/clipDetail";
 
 export default function ClipDetailPane({ detail }: { detail: ClipDetail | null }) {
-  if (!detail) return <aside className="clip-detail empty">선택된 항목이 없습니다</aside>;
+  if (!detail)
+    return (
+      <aside className="clip-detail empty">
+        <Icon name="clipboard" size={32} />
+        <span>선택된 항목이 없습니다</span>
+      </aside>
+    );
   return (
     <aside className="clip-detail">
       <div className="clip-detail-body">
