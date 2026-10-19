@@ -57,11 +57,11 @@ pub fn next_display(cur: Rect, from: Rect, to: Rect) -> Rect {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Side { Left, Right }
 
-/// 순환 단계: 1/2 → 1/3 → 3/4. 오른쪽 폭은 기존 RightHalf·LastThird 와 같은 식(나머지 흡수)으로 맞춘다.
+/// 순환 단계: 1/2 → 1/3 → 4/5. 오른쪽 폭은 기존 RightHalf·LastThird 와 같은 식(나머지 흡수)으로 맞춘다.
 fn half_steps(side: Side, a: Rect) -> [Rect; 3] {
     let widths = match side {
-        Side::Left => [a.w / 2, a.w / 3, a.w * 3 / 4],
-        Side::Right => [a.w - a.w / 2, a.w - (a.w / 3) * 2, a.w - a.w / 4],
+        Side::Left => [a.w / 2, a.w / 3, a.w * 4 / 5],
+        Side::Right => [a.w - a.w / 2, a.w - (a.w / 3) * 2, a.w - a.w / 5],
     };
     widths.map(|w| match side {
         Side::Left => Rect { w, ..a },
@@ -170,7 +170,7 @@ mod tests {
     const LEFT_MON: Rect = Rect { x: -1920, y: 0, w: 1920, h: 1032 };
 
     #[test]
-    fn left_cycles_half_third_three_quarters_then_moves_left() {
+    fn left_cycles_half_third_four_fifths_then_moves_left() {
         let all = [MAIN, LEFT_MON];
         let free = Rect { x: 300, y: 200, w: 800, h: 600 };
         let s1 = cycle_half(Side::Left, free, MAIN, &all);
@@ -178,7 +178,7 @@ mod tests {
         let s2 = cycle_half(Side::Left, s1, MAIN, &all);
         assert_eq!(s2, Rect { x: 0, y: 0, w: 640, h: 1032 });
         let s3 = cycle_half(Side::Left, s2, MAIN, &all);
-        assert_eq!(s3, Rect { x: 0, y: 0, w: 1440, h: 1032 });
+        assert_eq!(s3, Rect { x: 0, y: 0, w: 1536, h: 1032 });
         let s4 = cycle_half(Side::Left, s3, MAIN, &all);
         assert_eq!(s4, Rect { x: -960, y: 0, w: 960, h: 1032 }); // 왼쪽 모니터의 오른쪽 반
         // 넘어간 모니터에서 다시 누르면 그 모니터의 왼쪽 반부터
@@ -187,9 +187,9 @@ mod tests {
 
     #[test]
     fn last_step_without_neighbor_returns_to_half() {
-        let s3 = Rect { x: -1920, y: 0, w: 1440, h: 1032 };
+        let s3 = Rect { x: -1920, y: 0, w: 1536, h: 1032 };
         assert_eq!(cycle_half(Side::Left, s3, LEFT_MON, &[MAIN, LEFT_MON]), Rect { x: -1920, y: 0, w: 960, h: 1032 });
-        let r3 = Rect { x: 480, y: 0, w: 1440, h: 1032 };
+        let r3 = Rect { x: 384, y: 0, w: 1536, h: 1032 };
         assert_eq!(cycle_half(Side::Right, r3, MAIN, &[MAIN]), Rect { x: 960, y: 0, w: 960, h: 1032 });
     }
 
@@ -208,7 +208,7 @@ mod tests {
     #[test]
     fn neighbor_ignores_monitors_without_vertical_overlap() {
         let below_left = Rect { x: -1920, y: 1080, w: 1920, h: 1032 };
-        let s3 = Rect { x: 0, y: 0, w: 1440, h: 1032 };
+        let s3 = Rect { x: 0, y: 0, w: 1536, h: 1032 };
         assert_eq!(cycle_half(Side::Left, s3, MAIN, &[MAIN, below_left]), Rect { x: 0, y: 0, w: 960, h: 1032 });
     }
 }
