@@ -101,6 +101,11 @@ pub fn list_clips(
 }
 
 #[tauri::command]
+pub fn get_clip_detail(state: State<'_, AppState>, id: i64) -> Result<Option<crate::clipboard::store::ClipDetail>, String> {
+    state.clips.lock().unwrap().detail(id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn set_pinned(state: State<'_, AppState>, id: i64, pinned: bool) -> Result<(), String> {
     state.clips.lock().unwrap().set_pinned(id, pinned).map_err(|e| e.to_string())
 }

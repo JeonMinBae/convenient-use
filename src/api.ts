@@ -13,6 +13,19 @@ export interface ClipItem {
 /** 한 페이지는 100개. 목록의 text 는 300자까지만 오는 미리보기다 */
 export const listClips = (query: string, offset = 0) => invoke<ClipItem[]>("list_clips", { query, offset });
 export const CLIP_PAGE_SIZE = 100;
+export interface ClipDetail {
+  id: number;
+  kind: "text" | "image" | "files";
+  text: string | null;
+  files: string[] | null;
+  image: string | null;
+  imageWidth: number | null;
+  imageHeight: number | null;
+  byteSize: number | null;
+  createdAt: number;
+  lastUsedAt: number;
+}
+export const getClipDetail = (id: number) => invoke<ClipDetail | null>("get_clip_detail", { id });
 export const setPinned = (id: number, pinned: boolean) => invoke<void>("set_pinned", { id, pinned });
 export const deleteClip = (id: number) => invoke<void>("delete_clip", { id });
 export const clearClips = () => invoke<void>("clear_clips");

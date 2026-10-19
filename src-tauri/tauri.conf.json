@@ -21,8 +21,8 @@
       {
         "label": "clipboard-popup",
         "title": "클립보드",
-        "width": 640,
-        "height": 460,
+        "width": 960,
+        "height": 600,
         "decorations": false,
         "alwaysOnTop": true,
         "skipTaskbar": true,

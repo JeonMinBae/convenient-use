@@ -35,6 +35,7 @@ pub fn run() {
             commands::set_hotkeys_paused,
             commands::get_hotkey_failures,
             commands::list_clips,
+            commands::get_clip_detail,
             commands::set_pinned,
             commands::delete_clip,
             commands::clear_clips,

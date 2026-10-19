@@ -1,6 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { CLIP_PAGE_SIZE, type ClipItem, deleteClip, hideClipboardPopup, listClips, pasteClip, setPinned } from "../api";
+import {
+  CLIP_PAGE_SIZE,
+  type ClipDetail,
+  type ClipItem,
+  deleteClip,
+  getClipDetail,
+  hideClipboardPopup,
+  listClips,
+  pasteClip,
+  setPinned,
+} from "../api";
+import ClipDetailPane from "./ClipDetailPane";
 
 function preview(c: ClipItem) {
   if (c.kind === "files") {
@@ -25,6 +36,9 @@ export default function ClipboardPopup() {
   const reqId = useRef(0);
   const exhausted = useRef(false);
   const loadingMore = useRef(false);
+  const [detail, setDetail] = useState<ClipDetail | null>(null);
+  const detailReq = useRef(0);
+  const selectedId = clips[sel]?.id;
 
   const refetch = useCallback(async (q: string) => {
     const id = ++reqId.current;
@@ -82,6 +96,24 @@ export default function ClipboardPopup() {
   }, [query, refetch]);
 
   useEffect(() => {
+    const id = ++detailReq.current;
+    if (selectedId == null) {
+      setDetail(null);
+      return;
+    }
+    // 방향키를 누르고 있을 때 원본 이미지 요청이 몰리지 않게 잠깐 기다린다
+    const t = setTimeout(async () => {
+      try {
+        const d = await getClipDetail(selectedId);
+        if (id === detailReq.current) setDetail(d);
+      } catch {
+        if (id === detailReq.current) setDetail(null);
+      }
+    }, 80);
+    return () => clearTimeout(t);
+  }, [selectedId]);
+
+  useEffect(() => {
     list.current?.children[sel]?.scrollIntoView({ block: "nearest" });
   }, [sel]);
 
@@ -110,52 +142,55 @@ export default function ClipboardPopup() {
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
-      <ul
-        className="popup-list"
-        ref={list}
-        onScroll={(e) => {
-          const el = e.currentTarget;
-          if (el.scrollTop + el.clientHeight >= el.scrollHeight - 80) loadMore();
-        }}
-      >
-        {clips.map((c, i) => (
-          <li
-            key={c.id}
-            className={i === sel ? "clip selected" : "clip"}
-            onMouseMove={() => setSel(i)}
-            onClick={() => pasteClip(c.id)}
-          >
-            {c.kind === "image" && c.thumbnail ? (
-              <img className="clip-thumb" src={c.thumbnail} alt="" />
-            ) : (
-              <span className="clip-text">{preview(c)}</span>
-            )}
-            <button
-              className={c.pinned ? "clip-btn on" : "clip-btn"}
-              title={c.pinned ? "고정 해제" : "고정"}
-              onClick={async (e) => {
-                e.stopPropagation();
-                await setPinned(c.id, !c.pinned);
-                refetch(queryRef.current);
-              }}
+      <div className="popup-body">
+        <ul
+          className="popup-list"
+          ref={list}
+          onScroll={(e) => {
+            const el = e.currentTarget;
+            if (el.scrollTop + el.clientHeight >= el.scrollHeight - 80) loadMore();
+          }}
+        >
+          {clips.map((c, i) => (
+            <li
+              key={c.id}
+              className={i === sel ? "clip selected" : "clip"}
+              onMouseMove={() => setSel(i)}
+              onClick={() => pasteClip(c.id)}
             >
-              {c.pinned ? "★" : "☆"}
-            </button>
-            <button
-              className="clip-btn"
-              title="삭제"
-              onClick={async (e) => {
-                e.stopPropagation();
-                await deleteClip(c.id);
-                refetch(queryRef.current);
-              }}
-            >
-              ✕
-            </button>
-          </li>
-        ))}
-        {clips.length === 0 && <li className="clip-empty">항목이 없습니다</li>}
-      </ul>
+              {c.kind === "image" && c.thumbnail ? (
+                <img className="clip-thumb" src={c.thumbnail} alt="" />
+              ) : (
+                <span className="clip-text">{preview(c)}</span>
+              )}
+              <button
+                className={c.pinned ? "clip-btn on" : "clip-btn"}
+                title={c.pinned ? "고정 해제" : "고정"}
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  await setPinned(c.id, !c.pinned);
+                  refetch(queryRef.current);
+                }}
+              >
+                {c.pinned ? "★" : "☆"}
+              </button>
+              <button
+                className="clip-btn"
+                title="삭제"
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  await deleteClip(c.id);
+                  refetch(queryRef.current);
+                }}
+              >
+                ✕
+              </button>
+            </li>
+          ))}
+          {clips.length === 0 && <li className="clip-empty">항목이 없습니다</li>}
+        </ul>
+        <ClipDetailPane detail={detail} />
+      </div>
     </div>
   );
 }

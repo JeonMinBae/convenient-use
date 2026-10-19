@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS clips (
   image_file TEXT,           -- image: uuid (확장자 제외)
   hash TEXT NOT NULL UNIQUE,
   pinned INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER,        -- 처음 기록 시각. 컬럼 추가 전 행은 last_used_at 으로 채운다
   last_used_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_clips_last_used ON clips(last_used_at DESC);";
@@ -82,6 +83,32 @@ fn io_err(e: std::io::Error) -> rusqlite::Error {
     rusqlite::Error::ToSqlConversionFailure(Box::new(e))
 }
 
+fn migrate(conn: &Connection) -> rusqlite::Result<()> {
+    let has = conn.prepare("SELECT 1 FROM pragma_table_info('clips') WHERE name = 'created_at'")?.exists([])?;
+    if !has {
+        conn.execute_batch("ALTER TABLE clips ADD COLUMN created_at INTEGER; UPDATE clips SET created_at = last_used_at;")?;
+    }
+    Ok(())
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClipDetail {
+    pub id: i64,
+    pub kind: String,
+    /// text: 전체 본문 (목록과 달리 자르지 않는다)
+    pub text: Option<String>,
+    pub files: Option<Vec<String>>,
+    /// 원본 PNG `data:image/png;base64,...`
+    pub image: Option<String>,
+    pub image_width: Option<u32>,
+    pub image_height: Option<u32>,
+    /// 이미지 원본 PNG 파일 용량
+    pub byte_size: Option<u64>,
+    pub created_at: i64,
+    pub last_used_at: i64,
+}
+
 impl ClipStore {
     pub fn open(db_path: &Path, images_dir: &Path) -> rusqlite::Result<Self> {
         if let Some(parent) = db_path.parent() {
@@ -98,6 +125,7 @@ impl ClipStore {
     fn init(conn: Connection, images_dir: &Path) -> rusqlite::Result<Self> {
         fs::create_dir_all(images_dir).map_err(io_err)?;
         conn.execute_batch(SCHEMA)?;
+        migrate(&conn)?;
         Ok(Self { conn, images_dir: images_dir.to_path_buf() })
     }
 
@@ -133,7 +161,7 @@ impl ClipStore {
             }
         };
         let result = self.conn.execute(
-            "INSERT INTO clips (kind, text, image_file, hash, last_used_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+            "INSERT INTO clips (kind, text, image_file, hash, created_at, last_used_at) VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
             params![kind, text, image_file, hash, now_ms],
         );
         match result {
@@ -202,6 +230,45 @@ impl ClipStore {
         Ok(row.map(|row| {
             let path = row.3.as_deref().map(|u| self.image_path(u));
             (self.build_item(row, false), path)
+        }))
+    }
+
+    pub fn detail(&self, id: i64) -> rusqlite::Result<Option<ClipDetail>> {
+        let row = self
+            .conn
+            .query_row(
+                "SELECT id, kind, text, image_file, COALESCE(created_at, last_used_at), last_used_at FROM clips WHERE id = ?1",
+                [id],
+                |r| {
+                    Ok((
+                        r.get::<_, i64>(0)?,
+                        r.get::<_, String>(1)?,
+                        r.get::<_, Option<String>>(2)?,
+                        r.get::<_, Option<String>>(3)?,
+                        r.get::<_, i64>(4)?,
+                        r.get::<_, i64>(5)?,
+                    ))
+                },
+            )
+            .optional()?;
+        Ok(row.map(|(id, kind, text, image_file, created_at, last_used_at)| {
+            let files = (kind == "files").then(|| text.as_deref().unwrap_or("").split('\n').map(String::from).collect());
+            let path = image_file.map(|u| self.image_path(&u));
+            // 파일이 지워졌거나 읽기 실패하면 이미지 필드만 비우고 나머지는 보여 준다
+            let bytes = path.as_ref().and_then(|p| fs::read(p).ok());
+            let dims = path.as_ref().and_then(|p| image::image_dimensions(p).ok());
+            ClipDetail {
+                id,
+                kind,
+                text,
+                files,
+                byte_size: bytes.as_ref().map(|b| b.len() as u64),
+                image: bytes.map(|b| format!("data:image/png;base64,{}", STANDARD.encode(b))),
+                image_width: dims.map(|d| d.0),
+                image_height: dims.map(|d| d.1),
+                created_at,
+                last_used_at,
+            }
         }))
     }
 
@@ -348,6 +415,47 @@ mod tests {
         let (_, path) = s.get(i).unwrap().unwrap();
         assert!(path.unwrap().starts_with(d.path()));
         assert!(s.get(999).unwrap().is_none());
+    }
+
+    #[test]
+    fn migrates_old_db_filling_created_at_from_last_used() {
+        let dir = tempfile::tempdir().unwrap();
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE clips (id INTEGER PRIMARY KEY, kind TEXT NOT NULL, text TEXT, image_file TEXT,
+            hash TEXT NOT NULL UNIQUE, pinned INTEGER NOT NULL DEFAULT 0, last_used_at INTEGER NOT NULL);
+            INSERT INTO clips (kind, text, hash, last_used_at) VALUES ('text', 'old', 'h', 77);",
+        )
+        .unwrap();
+        let s = ClipStore::init(conn, dir.path()).unwrap();
+        let d = s.detail(1).unwrap().unwrap();
+        assert_eq!((d.created_at, d.last_used_at), (77, 77));
+    }
+
+    #[test]
+    fn rerecord_keeps_created_at_and_detail_has_full_text() {
+        let (mut s, _d) = store();
+        let long = "가".repeat(PREVIEW_CHARS + 50);
+        let id = s.record(ClipContent::Text(long.clone()), 10, 500).unwrap();
+        s.record(ClipContent::Text(long.clone()), 20, 500).unwrap();
+        let d = s.detail(id).unwrap().unwrap();
+        assert_eq!((d.created_at, d.last_used_at), (10, 20));
+        assert_eq!(d.text.as_deref(), Some(long.as_str()));
+    }
+
+    #[test]
+    fn image_detail_has_original_dimensions_and_size() {
+        let (mut s, _d) = store();
+        let mut png = Vec::new();
+        image::RgbaImage::new(30, 20)
+            .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+            .unwrap();
+        let id = s
+            .record(ClipContent::Image { png: png.clone(), thumb_png: vec![2], rgba_hash: "h".into() }, 1, 500)
+            .unwrap();
+        let d = s.detail(id).unwrap().unwrap();
+        assert_eq!((d.image_width, d.image_height, d.byte_size), (Some(30), Some(20), Some(png.len() as u64)));
+        assert!(d.image.unwrap().starts_with("data:image/png;base64,"));
     }
 
     #[test]
