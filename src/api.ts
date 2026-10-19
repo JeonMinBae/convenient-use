@@ -31,6 +31,7 @@ export const deleteClip = (id: number) => invoke<void>("delete_clip", { id });
 export const clearClips = () => invoke<void>("clear_clips");
 export const pasteClip = (id: number) => invoke<void>("paste_clip", { id });
 export const hideClipboardPopup = () => invoke<void>("hide_clipboard_popup");
+export const applyBackdrop = () => invoke<boolean>("apply_backdrop");
 
 // ---- 설정 (Rust settings::model 과 같은 모양, serde camelCase) ----
 

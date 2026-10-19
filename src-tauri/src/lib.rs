@@ -40,7 +40,8 @@ pub fn run() {
             commands::delete_clip,
             commands::clear_clips,
             commands::paste_clip,
-            commands::hide_clipboard_popup
+            commands::hide_clipboard_popup,
+            commands::apply_backdrop
         ])
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())

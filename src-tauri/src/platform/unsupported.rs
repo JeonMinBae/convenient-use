@@ -57,6 +57,12 @@ pub mod input {
     }
 }
 
+pub mod backdrop {
+    pub fn apply(_window: &tauri::WebviewWindow) -> bool {
+        false
+    }
+}
+
 pub mod hook {
     use crate::keyboard::KeyEvent;
 

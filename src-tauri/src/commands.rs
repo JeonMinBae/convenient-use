@@ -141,6 +141,12 @@ pub fn hide_clipboard_popup(app: AppHandle) -> Result<(), String> {
     crate::clipboard::popup::hide(&app).map_err(|e| format!("{e:#}"))
 }
 
+/// 호출한 창에 재질을 적용한다. true 면 웹뷰 배경을 투명하게 해도 된다.
+#[tauri::command]
+pub fn apply_backdrop(window: tauri::WebviewWindow) -> bool {
+    crate::platform::current::backdrop::apply(&window)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
