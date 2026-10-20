@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 256 256">
+  <!-- 앱 아이콘 원본. 수정 후 `npm run tauri icon src-tauri/icons/icon.svg` 로 나머지 아이콘을 재생성한다 -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3ccfb4"/>
+      <stop offset="1" stop-color="#0f8a79"/>
+    </linearGradient>
+  </defs>
+  <rect x="16" y="16" width="224" height="224" rx="56" fill="url(#tile)"/>
+  <rect x="40" y="44" width="176" height="172" rx="44" fill="#fff" fill-opacity="0.55"/>
+  <rect x="54" y="52.4" width="148" height="135.6" rx="37" fill="#fff"/>
+  <!-- 반짝임은 타일 그라데이션으로 칠해 키 윗면이 뚫린 것처럼 보이게 한다 -->
+  <path fill="url(#tile)" d="M128 70Q135.36 108.64 174 116Q135.36 123.36 128 162Q120.64 123.36 82 116Q120.64 108.64 128 70Z"/>
+</svg>
