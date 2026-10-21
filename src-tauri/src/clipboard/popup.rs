@@ -12,14 +12,24 @@ pub fn show(app: &AppHandle) -> anyhow::Result<()> {
     let state = app.state::<AppState>();
     *state.popup_prev.lock().unwrap() = window_ops::foreground().ok();
     let win = app.get_webview_window(POPUP_LABEL).context("popup window")?;
-    let work = window_ops::monitor_at_cursor()?;
-    let size = win.outer_size()?;
-    let x = work.x + (work.w - size.width as i32) / 2;
-    let y = work.y + (work.h - size.height as i32) / 2;
-    win.set_position(tauri::PhysicalPosition::new(x, y))?;
+    center_in(&win, window_ops::monitor_at_cursor()?)?;
     win.show()?;
     win.set_focus()?;
     app.emit_to(POPUP_LABEL, "clipboard-popup-opened", ())?;
+    Ok(())
+}
+
+/// 작업 영역 좌표는 Windows 가 물리 픽셀, macOS 가 포인트(논리 픽셀)다.
+fn center_in(win: &tauri::WebviewWindow, work: crate::window_layout::Rect) -> anyhow::Result<()> {
+    let size = win.outer_size()?;
+    #[cfg(target_os = "macos")]
+    let size = size.to_logical::<u32>(win.scale_factor()?);
+    let x = work.x + (work.w - size.width as i32) / 2;
+    let y = work.y + (work.h - size.height as i32) / 2;
+    #[cfg(target_os = "macos")]
+    win.set_position(tauri::LogicalPosition::new(x, y))?;
+    #[cfg(not(target_os = "macos"))]
+    win.set_position(tauri::PhysicalPosition::new(x, y))?;
     Ok(())
 }
 

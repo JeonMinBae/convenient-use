@@ -55,6 +55,9 @@ pub fn install(cb: Callback) -> Result<()> {
     rx.recv().map_err(|_| anyhow!("훅 스레드가 응답 없이 종료됨"))?
 }
 
+/// macOS 에만 필요한 처리다. LL 훅은 CapsLock 누름·뗌을 그대로 받는다.
+pub fn capture_caps_lock(_on: bool) {}
+
 unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     if code >= 0 {
         let info = unsafe { &*(lparam.0 as *const KBDLLHOOKSTRUCT) };

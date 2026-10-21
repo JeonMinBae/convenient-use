@@ -3,7 +3,6 @@ use std::collections::{HashMap, HashSet};
 use serde::{Deserialize, Serialize};
 
 use crate::hotkey::accelerator::normalize;
-use crate::keyboard::keys::code_to_vk;
 use crate::keyboard::{KeyDecision, KeyEvent, KeyHandler};
 use crate::platform::current::{input, process, window_ops};
 use crate::settings::model::RemapSettings;
@@ -370,7 +369,7 @@ fn combo_error(c: &KeyCombo) -> Option<String> {
         return Some(format!("알 수 없는 수정자입니다: {m}"));
     }
     match &c.key {
-        Some(k) if code_to_vk(k).is_none() => Some(format!("지원하지 않는 키입니다: {k}")),
+        Some(k) if !input::supports_key(k) => Some(format!("지원하지 않는 키입니다: {k}")),
         _ => None,
     }
 }
@@ -378,7 +377,7 @@ fn combo_error(c: &KeyCombo) -> Option<String> {
 fn key_error(k: &str) -> Option<String> {
     if k.is_empty() {
         Some("키를 지정하세요".into())
-    } else if code_to_vk(k).is_none() {
+    } else if !input::supports_key(k) {
         Some(format!("지원하지 않는 키입니다: {k}"))
     } else {
         None
@@ -455,6 +454,16 @@ pub fn validate_rules(s: &RemapSettings) -> Vec<ValidationError> {
         }
     }
     errors
+}
+
+/// 규칙이 code 를 입력(눌러서 발동하는 키)으로 쓰는지. 매크로 트리거는 전역 단축키라 제외한다.
+pub fn uses_input_key(s: &RemapSettings, code: &str) -> bool {
+    s.rules.iter().any(|r| match r {
+        RemapRule::Simple { from, .. } => from == code,
+        RemapRule::TapHold { key, .. } => key == code,
+        RemapRule::Layer { trigger, mappings, .. } => trigger == code || mappings.iter().any(|m| m.from == code),
+        RemapRule::Macro { .. } => false,
+    })
 }
 
 #[cfg(test)]

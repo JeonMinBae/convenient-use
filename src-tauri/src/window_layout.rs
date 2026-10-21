@@ -9,7 +9,7 @@ pub enum LayoutCommand {
     Maximize, Center, NextDisplay,
 }
 
-/// 화면 좌표계 사각형 (물리 픽셀).
+/// 화면 좌표계 사각형 (Windows 는 물리 픽셀, macOS 는 주 화면 왼쪽 위 원점의 포인트).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Rect {
     pub x: i32,

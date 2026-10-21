@@ -723,6 +723,7 @@ dependencies = [
  "image",
  "lnk",
  "log",
+ "objc2",
  "rusqlite",
  "serde",
  "serde_json",

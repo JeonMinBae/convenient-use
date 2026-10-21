@@ -111,7 +111,7 @@ pub struct Snippet {
 #[serde(default, rename_all = "camelCase")]
 pub struct RemapSettings {
     pub rules: Vec<RemapRule>,
-    // 실행 파일 이름, 소문자 비교 (예: "valorant.exe")
+    // 실행 파일 이름, 소문자 비교 (예: Windows "valorant.exe", macOS 는 앱 번들 이름 "safari.app")
     pub excluded_apps: Vec<String>,
 }
 
