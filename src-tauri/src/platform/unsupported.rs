@@ -1,4 +1,4 @@
-// macOS 등 미지원 OS 의 컴파일 경계를 유지하는 스텁. windows 모듈과 같은 함수 시그니처를 가진다.
+// Linux 등 미지원 OS 의 컴파일 경계를 유지하는 스텁. windows 모듈과 같은 함수 시그니처를 가진다.
 
 pub mod window_ops {
     use crate::window_layout::Rect;
@@ -43,6 +43,9 @@ pub mod input {
 
     pub const INJECTED_MARK: usize = 0x434F_4E56;
 
+    pub fn supports_key(code: &str) -> bool {
+        crate::keyboard::keys::code_to_vk(code).is_some()
+    }
     pub fn send_keys(_combos: &[KeyCombo]) -> anyhow::Result<()> {
         anyhow::bail!("지원하지 않는 OS")
     }
@@ -69,4 +72,5 @@ pub mod hook {
     pub fn install(_cb: fn(&KeyEvent) -> bool) -> anyhow::Result<()> {
         anyhow::bail!("지원하지 않는 OS")
     }
+    pub fn capture_caps_lock(_on: bool) {}
 }

@@ -47,7 +47,7 @@ fn import_validated(store: &SettingsStore, src: &Path) -> Result<Settings, Vec<V
 
 #[tauri::command]
 pub fn list_installed_apps() -> Vec<crate::launcher::InstalledApp> {
-    crate::launcher::scan_start_menu()
+    crate::launcher::scan_installed()
 }
 
 #[derive(Serialize)]

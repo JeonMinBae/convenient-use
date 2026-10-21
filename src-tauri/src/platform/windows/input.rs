@@ -31,6 +31,11 @@ fn sequence(combo: &KeyCombo) -> Result<Vec<(u16, bool)>> {
     Ok(seq)
 }
 
+/// 이 OS 에서 주입·인식할 수 있는 키인지 (리매핑 규칙 검증용)
+pub fn supports_key(code: &str) -> bool {
+    crate::keyboard::keys::code_to_vk(code).is_some()
+}
+
 fn key_vk(code: &str) -> Result<u16> {
     crate::keyboard::keys::code_to_vk(code).ok_or_else(|| anyhow::anyhow!("지원하지 않는 키: {code}"))
 }

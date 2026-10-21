@@ -4,6 +4,7 @@ import { Icon, type IconName } from "../components/Icon";
 import type { Notice } from "../components/InfoBar";
 import { SettingsCard, SettingsGroup } from "../components/SettingsCard";
 import { ToggleSwitch } from "../components/ToggleSwitch";
+import { isWindows } from "./fields";
 
 // 아이콘은 사이드바와 같게 유지한다
 const FEATURES: [keyof FeatureToggles, string, IconName, string][] = [
@@ -55,7 +56,7 @@ export function GeneralTab({ draft, onChange, onImported, onNotice }: Props) {
 
   return (
     <section>
-      <SettingsCard icon="power" title="로그인 시 자동 실행" description="Windows에 로그인하면 트레이에서 자동으로 시작합니다">
+      <SettingsCard icon="power" title="로그인 시 자동 실행" description={isWindows ? "Windows에 로그인하면 트레이에서 자동으로 시작합니다" : "Mac에 로그인하면 메뉴 막대에서 자동으로 시작합니다"}>
         <ToggleSwitch
           label="로그인 시 자동 실행"
           checked={g.autostart}

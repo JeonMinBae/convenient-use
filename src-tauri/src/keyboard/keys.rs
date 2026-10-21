@@ -121,10 +121,13 @@ const TABLE: &[(&str, u16)] = &[
     ("Quote", 0xDE),
 ];
 
+#[cfg_attr(target_os = "macos", allow(dead_code))]
 pub fn code_to_vk(code: &str) -> Option<u16> {
     TABLE.iter().find(|(c, _)| *c == code).map(|&(_, vk)| vk)
 }
 
+// Windows 훅만 쓴다 (macOS 는 platform::macos::keycodes 의 자체 표)
+#[cfg_attr(not(windows), allow(dead_code))]
 pub fn vk_to_code(vk: u16) -> Option<&'static str> {
     TABLE.iter().find(|&&(_, v)| v == vk).map(|&(c, _)| c)
 }

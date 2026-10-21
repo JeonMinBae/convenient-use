@@ -1,3 +1,5 @@
+import { isMac } from "./platform";
+
 const MODIFIER_CODES = new Set([
   "ControlLeft", "ControlRight", "AltLeft", "AltRight",
   "ShiftLeft", "ShiftRight", "MetaLeft", "MetaRight",
@@ -24,8 +26,17 @@ const KEY_LABELS: Record<string, string> = {
   Backslash: "\\", Semicolon: ";", Quote: "'", Comma: ",", Period: ".", Slash: "/",
 };
 
+// macOS 는 Super 가 Command, Alt 가 Option 이다. 메뉴 막대와 같은 기호로 보여준다
+const MAC_LABELS: Record<string, string> = {
+  Super: "⌘", MetaLeft: "⌘", MetaRight: "Right ⌘",
+  Ctrl: "⌃", ControlLeft: "⌃", ControlRight: "Right ⌃",
+  Alt: "⌥", AltLeft: "⌥", AltRight: "Right ⌥",
+  Shift: "⇧", ShiftLeft: "⇧", ShiftRight: "Right ⇧",
+};
+
 /** KeyboardEvent.code 또는 accelerator 수정자 이름을 키캡에 쓸 짧은 라벨로 바꾼다 */
-export function keyLabel(code: string): string {
+export function keyLabel(code: string, mac = isMac): string {
+  if (mac && MAC_LABELS[code]) return MAC_LABELS[code];
   if (KEY_LABELS[code]) return KEY_LABELS[code];
   const m = /^(?:Key|Digit)(.)$/.exec(code);
   if (m) return m[1];
@@ -34,4 +45,4 @@ export function keyLabel(code: string): string {
 }
 
 /** "Ctrl+Shift+KeyV" → ["Ctrl", "Shift", "V"]. 빈 문자열은 미지정 */
-export const acceleratorKeys = (accel: string): string[] => (accel ? accel.split("+").map(keyLabel) : []);
+export const acceleratorKeys = (accel: string): string[] => (accel ? accel.split("+").map((k) => keyLabel(k)) : []);

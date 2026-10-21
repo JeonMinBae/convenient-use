@@ -7,7 +7,10 @@ import { KeyField } from "../components/Keycap";
 import { SettingsGroup } from "../components/SettingsCard";
 import { ToggleSwitch } from "../components/ToggleSwitch";
 import { keyLabel } from "../lib/accelerator";
-import type { FieldMaps } from "./fields";
+import { type FieldMaps, isWindows } from "./fields";
+
+// macOS 는 앱 번들 이름으로 비교한다 (Rust platform::macos::process::foreground_exe)
+const EXCLUDE_EXAMPLE = isWindows ? "notepad.exe" : "Safari.app";
 
 interface Props {
   draft: Settings;
@@ -64,7 +67,7 @@ function ComboEditor({ value, onChange, error }: { value: KeyCombo; onChange: (c
       {MODS.map((m) => (
         <label key={m}>
           <input type="checkbox" checked={value.mods.includes(m)} onChange={() => toggle(m)} />
-          {m}
+          {isWindows ? m : keyLabel(m)}
         </label>
       ))}
       <KeyInput value={value.key ?? ""} onChange={(key) => onChange({ ...value, key })} />
@@ -201,7 +204,7 @@ export function RemapTab({ draft, onChange, maps }: Props) {
         <InfoBar
           notice={{
             kind: "info",
-            text: "포그라운드 창이 이 앱이면 리매핑을 하지 않습니다. 실행 파일 이름을 입력하세요 (예: notepad.exe).",
+            text: `포그라운드 창이 이 앱이면 리매핑을 하지 않습니다. ${isWindows ? "실행 파일" : "앱"} 이름을 입력하세요 (예: ${EXCLUDE_EXAMPLE}).`,
           }}
         />
         {excludedApps.map((a, i) => (
@@ -209,7 +212,7 @@ export function RemapTab({ draft, onChange, maps }: Props) {
             <div className="row">
               <input
                 className="grow"
-                placeholder="notepad.exe"
+                placeholder={EXCLUDE_EXAMPLE}
                 value={a}
                 onChange={(e) => setRemap({ excludedApps: excludedApps.map((x, k) => (k === i ? e.target.value : x)) })}
               />

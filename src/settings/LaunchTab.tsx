@@ -3,7 +3,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { type InstalledApp, type LaunchItem, type OsPath, type Settings, listInstalledApps } from "../api";
 import { HotkeyInput } from "../components/HotkeyInput";
 import { Icon } from "../components/Icon";
-import { type FieldMaps, osKey } from "./fields";
+import { type FieldMaps, isWindows, osKey } from "./fields";
 
 interface Props {
   draft: Settings;
@@ -18,7 +18,9 @@ const currentPath = (p: OsPath) => p[osKey] ?? "";
 const baseName = (p: string) => (p.split(/[\\/]/).pop() ?? p).replace(/\.(exe|lnk|app)$/i, "");
 
 async function pickExecutable(): Promise<string | null> {
-  const r = await open({ multiple: false, filters: [{ name: "실행 파일", extensions: ["exe", "lnk"] }] });
+  // macOS 앱은 .app 번들(폴더)이지만 열기 대화상자는 파일처럼 고르게 해 준다
+  const filter = isWindows ? { name: "실행 파일", extensions: ["exe", "lnk"] } : { name: "응용 프로그램", extensions: ["app"] };
+  const r = await open({ multiple: false, filters: [filter], defaultPath: isWindows ? undefined : "/Applications" });
   return typeof r === "string" ? r : null;
 }
 

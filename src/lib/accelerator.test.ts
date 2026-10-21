@@ -27,6 +27,12 @@ describe("keyLabel", () => {
     expect(keyLabel("AltRight")).toBe("Right Alt");
     expect(keyLabel("Super")).toBe("Win");
   });
+  it("uses macOS modifier symbols on mac", () => {
+    expect(keyLabel("Super", true)).toBe("⌘");
+    expect(keyLabel("Alt", true)).toBe("⌥");
+    expect(keyLabel("AltRight", true)).toBe("Right ⌥");
+    expect(keyLabel("KeyV", true)).toBe("V");
+  });
   it("falls back to the code itself", () => {
     expect(keyLabel("F13")).toBe("F13");
     expect(keyLabel("CapsLock")).toBe("CapsLock");

@@ -104,6 +104,15 @@ fn resolve_exe(path: &str) -> Option<String> {
 
 pub fn open_url(app: &AppHandle, url: &str, browser: &OsPath) -> anyhow::Result<()> {
     match browser.current() {
+        // macOS 의 브라우저 경로는 .app 번들(디렉터리)이라 직접 실행할 수 없다
+        #[cfg(target_os = "macos")]
+        Some(app_path) => {
+            std::process::Command::new("open")
+                .args(["-a", app_path, url])
+                .spawn()
+                .with_context(|| format!("브라우저 실행 실패: {app_path}"))?;
+        }
+        #[cfg(not(target_os = "macos"))]
         Some(exe) => {
             std::process::Command::new(exe).arg(url).spawn().with_context(|| format!("브라우저 실행 실패: {exe}"))?;
         }
@@ -118,19 +127,31 @@ pub struct InstalledApp {
     pub path: String,
 }
 
-pub fn scan_start_menu() -> Vec<InstalledApp> {
+/// Windows 는 시작 메뉴 바로가기(.lnk), macOS 는 응용 프로그램 폴더의 앱 번들(.app).
+#[cfg(not(target_os = "macos"))]
+pub fn scan_installed() -> Vec<InstalledApp> {
     let rel = Path::new("Microsoft").join("Windows").join("Start Menu").join("Programs");
     let root = |var: &str| std::env::var_os(var).map(|v| PathBuf::from(v).join(&rel)).unwrap_or_default();
-    scan_dirs(&root("APPDATA"), &root("ProgramData"))
+    scan_dirs(&[root("APPDATA"), root("ProgramData")], "lnk")
 }
 
-/// user 폴더를 먼저 훑어 같은 이름은 user 항목이 남는다. 결과는 이름순.
-pub fn scan_dirs(user: &Path, common: &Path) -> Vec<InstalledApp> {
+#[cfg(target_os = "macos")]
+pub fn scan_installed() -> Vec<InstalledApp> {
+    let mut roots = Vec::new();
+    if let Some(home) = std::env::var_os("HOME") {
+        roots.push(PathBuf::from(home).join("Applications"));
+    }
+    roots.extend(["/Applications", "/System/Applications"].map(PathBuf::from));
+    scan_dirs(&roots, "app")
+}
+
+/// 앞쪽 폴더를 먼저 훑어 같은 이름은 앞쪽(사용자) 항목이 남는다. 결과는 이름순.
+pub fn scan_dirs(roots: &[PathBuf], ext: &str) -> Vec<InstalledApp> {
     let mut seen = HashSet::new();
     let mut apps = Vec::new();
-    for root in [user, common] {
+    for root in roots {
         let mut found = Vec::new();
-        collect_lnk(root, &mut found);
+        collect(root, ext, &mut found);
         for path in found {
             let Some(name) = path.file_stem().and_then(|s| s.to_str()) else { continue };
             let lower = name.to_lowercase();
@@ -144,15 +165,16 @@ pub fn scan_dirs(user: &Path, common: &Path) -> Vec<InstalledApp> {
     apps
 }
 
-fn collect_lnk(dir: &Path, out: &mut Vec<PathBuf>) {
+/// 확장자를 먼저 본다: .app 은 디렉터리라 안으로 내려가면 번들 내부의 도우미 앱까지 잡힌다.
+fn collect(dir: &Path, ext: &str, out: &mut Vec<PathBuf>) {
     let Ok(rd) = std::fs::read_dir(dir) else { return };
     let mut entries: Vec<PathBuf> = rd.flatten().map(|e| e.path()).collect();
     entries.sort();
     for p in entries {
-        if p.is_dir() {
-            collect_lnk(&p, out);
-        } else if p.extension().is_some_and(|e| e.eq_ignore_ascii_case("lnk")) {
+        if p.extension().is_some_and(|e| e.eq_ignore_ascii_case(ext)) {
             out.push(p);
+        } else if p.is_dir() {
+            collect(&p, ext, out);
         }
     }
 }
@@ -206,7 +228,7 @@ mod tests {
         touch(c.path(), "Dev/Code.lnk");
         touch(c.path(), "alpha.LNK");
         touch(c.path(), "readme.txt");
-        let names: Vec<_> = scan_dirs(u.path(), c.path()).into_iter().map(|a| a.name).collect();
+        let names: Vec<_> = scan_dirs(&[u.path().into(), c.path().into()], "lnk").into_iter().map(|a| a.name).collect();
         assert_eq!(names, ["alpha", "Code", "Zoom"]);
     }
 
@@ -215,7 +237,7 @@ mod tests {
         let (u, c) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
         touch(u.path(), "Slack.lnk");
         touch(c.path(), "Slack.lnk");
-        let apps = scan_dirs(u.path(), c.path());
+        let apps = scan_dirs(&[u.path().into(), c.path().into()], "lnk");
         assert_eq!(apps.len(), 1);
         assert!(Path::new(&apps[0].path).starts_with(u.path()));
     }
@@ -226,12 +248,21 @@ mod tests {
         touch(u.path(), "Uninstall Foo.lnk");
         touch(c.path(), "Foo 제거.lnk");
         touch(c.path(), "Foo.lnk");
-        let names: Vec<_> = scan_dirs(u.path(), c.path()).into_iter().map(|a| a.name).collect();
+        let names: Vec<_> = scan_dirs(&[u.path().into(), c.path().into()], "lnk").into_iter().map(|a| a.name).collect();
         assert_eq!(names, ["Foo"]);
     }
 
     #[test]
     fn scan_tolerates_missing_roots() {
-        assert!(scan_dirs(Path::new(r"Z:\nope"), Path::new(r"Z:\nope2")).is_empty());
+        assert!(scan_dirs(&[r"Z:\nope".into(), r"Z:\nope2".into()], "lnk").is_empty());
+    }
+
+    #[test]
+    fn scan_app_bundles_without_descending_into_them() {
+        let root = tempfile::tempdir().unwrap();
+        touch(root.path(), "Slack.app/Contents/Frameworks/Slack Helper.app/x");
+        touch(root.path(), "Utilities/Terminal.app/Contents/Info.plist");
+        let names: Vec<_> = scan_dirs(&[root.path().into()], "app").into_iter().map(|a| a.name).collect();
+        assert_eq!(names, ["Slack", "Terminal"]);
     }
 }

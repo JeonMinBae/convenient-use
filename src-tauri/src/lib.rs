@@ -58,6 +58,9 @@ pub fn run() {
                 .build(),
         )
         .setup(|app| {
+            // 트레이 상주 앱이므로 Dock 아이콘·앱 전환기 항목을 만들지 않는다
+            #[cfg(target_os = "macos")]
+            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
             let path = app.path().app_config_dir()?.join("settings.json");
             let store = settings::store::SettingsStore::new(path);
             let data_dir = app.path().app_data_dir()?;
@@ -91,8 +94,14 @@ pub fn run() {
                 _ => {}
             }
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while running tauri application")
+        .run(|_app, event| {
+            // macOS 의 CapsLock 가로채기(hidutil)는 프로세스가 끝나도 남으므로 종료 시 되돌린다
+            if let tauri::RunEvent::Exit = event {
+                platform::current::hook::capture_caps_lock(false);
+            }
+        });
 }
 
 /// 저장·가져오기·시작 시 설정을 실제 시스템 상태(단축키, 자동 시작)에 반영한다. 등록 실패 개수를 돌려준다.
@@ -113,6 +122,9 @@ pub fn apply_settings(app: &AppHandle) -> usize {
     drop(hotkeys);
 
     keyboard::set_handlers(keyboard_handlers(app, &settings));
+    platform::current::hook::capture_caps_lock(
+        settings.general.features.remap && remap::uses_input_key(&settings.remap, "CapsLock"),
+    );
 
     let manager = app.autolaunch();
     match manager.is_enabled() {
