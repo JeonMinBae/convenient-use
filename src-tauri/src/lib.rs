@@ -62,22 +62,41 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
             let path = app.path().app_config_dir()?.join("settings.json");
-            let store = settings::store::SettingsStore::new(path);
+            let mut store = settings::store::SettingsStore::new(path);
+            let settings = store.load();
+            let mut startup_warnings: Vec<String> = store.save_blocked().map(str::to_owned).into_iter().collect();
             let data_dir = app.path().app_data_dir()?;
-            let clips = clipboard::store::ClipStore::open(&data_dir.join("clipboard.db"), &data_dir.join("clips"))?;
+            let images_dir = data_dir.join("clips");
+            // 클립보드 DB 하나 때문에 앱 전체가 뜨지 못하지 않도록, 열 수 없으면 이번 실행만 메모리 DB 로 대신한다
+            let clips = match clipboard::store::ClipStore::open(&data_dir.join("clipboard.db"), &images_dir) {
+                Ok(c) => c,
+                Err(e) => {
+                    log::warn!("클립보드 DB 를 열지 못했습니다: {e}");
+                    startup_warnings.push("클립보드 기록을 열지 못해 이번 실행 동안만 임시로 기록합니다".into());
+                    clipboard::store::ClipStore::open_in_memory(&images_dir)?
+                }
+            };
             app.manage(state::AppState {
-                settings: RwLock::new(store.load()),
+                settings: RwLock::new(settings),
                 store,
                 hotkeys: Mutex::new(Default::default()),
                 clips: Mutex::new(clips),
                 clip_suppress_until: Mutex::new(None),
                 popup_prev: Mutex::new(None),
             });
+            // 창은 config 에서 create: false 로 두고 상태 등록 뒤에 만든다. Tauri 는 config 창을 setup 보다
+            // 먼저 띄우므로, 콜드 부팅처럼 느린 환경에서는 페이지의 get_settings 가 상태 등록 전에 실행되어 실패한다
+            for config in &app.config().app.windows {
+                tauri::WebviewWindowBuilder::from_config(app.handle(), config)?.build()?;
+            }
             tray::create(app.handle())?;
             clipboard::watcher::start(app.handle().clone());
             keyboard::start();
             let failed = apply_settings(app.handle());
             tray::notify_hotkey_failures(app.handle(), failed);
+            for warning in &startup_warnings {
+                tray::notify(app.handle(), warning);
+            }
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -126,18 +145,36 @@ pub fn apply_settings(app: &AppHandle) -> usize {
         settings.general.features.remap && remap::uses_input_key(&settings.remap, "CapsLock"),
     );
 
-    let manager = app.autolaunch();
-    match manager.is_enabled() {
-        Ok(on) if on != settings.general.autostart => {
-            let result = if settings.general.autostart { manager.enable() } else { manager.disable() };
-            if let Err(e) = result {
-                log::warn!("자동 시작 설정 실패: {e}");
-            }
-        }
-        Err(e) => log::warn!("자동 시작 상태 확인 실패: {e}"),
-        _ => {}
-    }
+    sync_autostart(app, settings.general.autostart);
     failed
+}
+
+/// 개발 빌드는 자동 시작 등록을 건드리지 않는다. 설정 파일을 설치본과 공유하므로 여기서 등록하면
+/// 시작 프로그램이 개발 빌드 exe 를 가리키게 된다.
+fn sync_autostart(app: &AppHandle, enabled: bool) {
+    if std::env::current_exe().is_ok_and(|exe| is_cargo_build(&exe)) {
+        return;
+    }
+    let manager = app.autolaunch();
+    let result = if enabled {
+        // is_enabled 는 등록 항목 이름만 보고 경로는 확인하지 않으므로, 켜져 있어도 현재 exe 경로로 다시 쓴다
+        manager.enable()
+    } else {
+        match manager.is_enabled() {
+            Ok(true) => manager.disable(),
+            other => other.map(|_| ()),
+        }
+    };
+    if let Err(e) = result {
+        log::warn!("자동 시작 설정 실패: {e}");
+    }
+}
+
+/// cargo 출력 폴더(`target/debug`, `target/<triple>/release` 등) 안의 exe 인지
+fn is_cargo_build(exe: &std::path::Path) -> bool {
+    let profile_dir = exe.parent().and_then(|p| p.file_name());
+    matches!(profile_dir.and_then(|n| n.to_str()), Some("debug" | "release"))
+        && exe.ancestors().any(|a| a.file_name().is_some_and(|n| n == "target"))
 }
 
 /// 키보드 훅 핸들러 체인. 순서가 곧 우선순위다 (리매핑 핸들러는 맨 앞에 추가).
@@ -151,3 +188,18 @@ fn keyboard_handlers(app: &AppHandle, settings: &Settings) -> Vec<Box<dyn KeyHan
     }
     handlers
 }
+
+#[cfg(test)]
+mod tests {
+    use super::is_cargo_build;
+    use std::path::Path;
+
+    #[test]
+    fn cargo_build_is_detected_by_output_dir() {
+        assert!(is_cargo_build(Path::new("/src/app/src-tauri/target/release/app.exe")));
+        assert!(is_cargo_build(Path::new("/src/app/target/x86_64-apple-darwin/debug/app")));
+        assert!(!is_cargo_build(Path::new("/Users/u/AppData/Local/Convenient Use/convenient-use.exe")));
+        assert!(!is_cargo_build(Path::new("/Applications/Convenient Use.app/Contents/MacOS/convenient-use")));
+    }
+}
+
