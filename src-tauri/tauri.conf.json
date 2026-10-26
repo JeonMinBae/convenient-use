@@ -14,6 +14,7 @@
     "windows": [
       {
         "label": "settings",
+        "create": false,
         "title": "Convenient Use 설정",
         "width": 920,
         "height": 640,
@@ -25,6 +26,7 @@
       },
       {
         "label": "clipboard-popup",
+        "create": false,
         "title": "클립보드",
         "width": 960,
         "height": 600,

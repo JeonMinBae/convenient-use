@@ -54,12 +54,11 @@ pub fn notify_hotkey_failures(app: &AppHandle, count: usize) {
     if count == 0 {
         return;
     }
-    let result = app
-        .notification()
-        .builder()
-        .title("Convenient Use")
-        .body(format!("단축키 {count}개를 등록하지 못했습니다"))
-        .show();
+    notify(app, &format!("단축키 {count}개를 등록하지 못했습니다"));
+}
+
+pub fn notify(app: &AppHandle, body: &str) {
+    let result = app.notification().builder().title("Convenient Use").body(body).show();
     if let Err(e) = result {
         log::warn!("알림 표시 실패: {e}");
     }

@@ -119,7 +119,7 @@ impl ClipStore {
         Self::init(Connection::open(db_path)?, images_dir)
     }
 
-    #[cfg(test)]
+    /// 디스크 DB 를 열 수 없을 때 이번 실행 동안만 쓰는 대체 저장소로도 쓴다
     pub fn open_in_memory(images_dir: &Path) -> rusqlite::Result<Self> {
         Self::init(Connection::open_in_memory()?, images_dir)
     }

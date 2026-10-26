@@ -154,7 +154,7 @@ mod tests {
     #[test]
     fn import_with_duplicate_hotkey_is_rejected_and_keeps_file() {
         let dir = tempfile::tempdir().unwrap();
-        let store = SettingsStore::new(dir.path().join("settings.json"));
+        let mut store = SettingsStore::new(dir.path().join("settings.json"));
         let current = Settings::default();
         store.save(&current).unwrap();
 
