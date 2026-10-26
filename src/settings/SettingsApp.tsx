@@ -1,3 +1,4 @@
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useCallback, useEffect, useState } from "react";
 import { type HotkeyFailure, type Settings, type ValidationError, getHotkeyFailures, getSettings, saveSettings } from "../api";
 import { Icon, type IconName } from "../components/Icon";
@@ -39,12 +40,30 @@ export default function SettingsApp() {
 
   const [loadFailed, setLoadFailed] = useState(false);
 
-  useEffect(() => {
-    load().catch((e) => {
-      setLoadFailed(true);
-      setNotice({ kind: "error", text: `설정을 불러오지 못했습니다: ${e}` });
-    });
+  const tryLoad = useCallback(() => {
+    load()
+      .then(() => {
+        setLoadFailed(false);
+        setNotice(null);
+      })
+      .catch((e) => {
+        setLoadFailed(true);
+        setNotice({ kind: "error", text: `설정을 불러오지 못했습니다: ${e}` });
+      });
   }, [load]);
+
+  useEffect(tryLoad, [tryLoad]);
+
+  // 창은 숨겨질 뿐 다시 마운트되지 않으므로, 불러오기에 실패했다면 창이 다시 포커스될 때 재시도한다
+  useEffect(() => {
+    if (!loadFailed) return;
+    const unlisten = getCurrentWindow().onFocusChanged(({ payload: focused }) => {
+      if (focused) tryLoad();
+    });
+    return () => {
+      unlisten.then((f) => f());
+    };
+  }, [loadFailed, tryLoad]);
 
   if (!draft) {
     return (
